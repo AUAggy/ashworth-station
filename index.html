@@ -3053,6 +3053,14 @@ function damagePlayer(amount,from){
 
 /* ============================================================ WAVE DIRECTOR */
 const wave={state:'idle',t:0,queue:0,spawnGap:0.7,spawnT:0,src:'tunnel',composition:[]};
+/* The pause ration. Three presses a wave, and a press is a three-second breath,
+   not a halt: the card counts itself down and drops you back in ready or not.
+   ESC used to be a wall the horde could not cross, free to hold whenever the
+   platform got loud, for as long as the holder liked — a cheat in everything
+   but name, and the game failing at its only job. Now the wall costs one of
+   three, and it comes down on its own before it can be leaned on. */
+const PAUSES_PER_WAVE=3,PAUSE_HOLD=3;
+let pausesLeft=PAUSES_PER_WAVE,pauseT=0,pauseShown=-1;
 let expressT=rand(9,16);
 
 function buildComposition(n,final){
@@ -3077,7 +3085,7 @@ function buildComposition(n,final){
   return list;
 }
 function startWave(){
-  waveNum++;waveKills=0;waveShots=0;waveHits=0;
+  waveNum++;waveKills=0;waveShots=0;waveHits=0;pausesLeft=PAUSES_PER_WAVE;
   const final=waveNum>=FINAL_WAVE;
   const baseN=final?36:Math.min(44,5+Math.round(waveNum*3.1));
   const n=casual?Math.max(4,Math.round(baseN*0.8)):baseN;
@@ -3206,6 +3214,15 @@ document.addEventListener('mousemove',e=>{
 document.addEventListener('pointerlockchange',()=>{
   pointerLocked=(document.pointerLockElement===canvasEl);
   if(!pointerLocked&&gameState==='playing'&&!fallbackLook)pause();
+});
+/* A lost lock with the ration spent — alt-tab, or an ESC the browser ate — used
+   to be the second, quieter door to the same wall. The view stays live instead,
+   and the next click on it takes the mouse back. */
+canvasEl.addEventListener('pointerdown',()=>{
+  if(gameState==='playing'&&!pointerLocked&&!fallbackLook&&!touchMode&&canvasEl.requestPointerLock){
+    const p=canvasEl.requestPointerLock();
+    if(p&&p.catch)p.catch(()=>{});
+  }
 });
 window.addEventListener('mousedown',e=>{
   if(gameState!=='playing')return;
@@ -3430,16 +3447,31 @@ function setPanel(html){elPanel.innerHTML=html;}
 
 function pause(){
   if(gameState!=='playing')return;
+  if(pausesLeft<=0){
+    /* Spent ration. Say so where every other event is said, and keep the run
+       alive — the horde does not stop because the player is out of breath. */
+    showBanner('PAUSE DENIED','NO PAUSES LEFT THIS WAVE',1.8);
+    return;
+  }
+  pausesLeft--;
   gameState='paused';firing=false;aiming=false;releaseTouchInput();
   elScreens.classList.remove('hide');
   setPanel('<div class="kicker">ASHWORTH ST</div><h1>PAUSED</h1><div class="rule"></div>'+
     '<p class="sub">The platform is holding. Take a breath.</p>'+
-    '<div class="cta">CLICK TO RESUME</div>');
+    '<div class="note">'+(pausesLeft===0?'LAST PAUSE':'PAUSES LEFT '+pausesLeft)+' THIS WAVE</div>'+
+    '<div class="cta" id="pauseCta">AUTO-RESUME IN '+PAUSE_HOLD+' — CLICK TO RESUME</div>');
   if(document.exitPointerLock)document.exitPointerLock();
+  pauseT=PAUSE_HOLD;pauseShown=PAUSE_HOLD;
 }
 function resume(){
   gameState='playing';elScreens.classList.add('hide');elHud.classList.add('on');
-  if(!touchMode&&!fallbackLook&&canvasEl.requestPointerLock)canvasEl.requestPointerLock();
+  if(!touchMode&&!fallbackLook&&canvasEl.requestPointerLock){
+    const p=canvasEl.requestPointerLock();
+    /* The auto-resume path fires from the frame loop with no gesture behind it,
+       so a browser mid-cooldown can reject the request. That is fine — the run
+       keeps going and the next click on the view takes the lock back. */
+    if(p&&p.catch)p.catch(()=>{});
+  }
 }
 /* One place to record a finished run. Guarded, so a weaker run can no longer
    overwrite the best — the old code reassigned bestRun unconditionally and then
@@ -3514,6 +3546,7 @@ function startGame(){
   player.pos.set(0,EYE,30);player.vel.set(0,0,0);player.hp=100;player.y=0;player.vy=0;
   player.yaw=0;player.pitch=0;player.lastHurt=99;player.shake=0;
   waveNum=0;score=0;runT=0;stats.kills=0;stats.shots=0;stats.hits=0;
+  pausesLeft=PAUSES_PER_WAVE;   // the redeploy intermission belongs to no wave yet
   MOVE_SPD=4.5*(badge[4]?1.1:1);
   for(const k in weapons){
     const w=weapons[k];w.ammo=w.def.mag;w.reserve=w.def.reserve;w.reloading=0;w.cool=0;
@@ -3539,7 +3572,8 @@ elScreens.addEventListener('pointerdown',e=>{
   if(gameState==='paused'){resume();return;}
   if(touchMode){startGame();return;}
   if(!fallbackLook&&canvasEl.requestPointerLock){
-    canvasEl.requestPointerLock();
+    const p=canvasEl.requestPointerLock();
+    if(p&&p.catch)p.catch(()=>{});   // a blocked frame rejects; the 380ms check below is what actually falls back
     setTimeout(()=>{
       if(!pointerLocked){
         fallbackLook=true;
@@ -3573,6 +3607,18 @@ function frame(now){
     updateDust(elapsedT);
     updateSignals();
     updateFlicker(dt);
+  }
+  /* The pause countdown runs on game time, not wall time — a backgrounded tab
+     holds the breath instead of spending it, which is how runT behaves too. */
+  if(gameState==='paused'){
+    pauseT-=dt;
+    const s=Math.max(1,Math.ceil(pauseT));
+    if(s!==pauseShown){
+      pauseShown=s;
+      const cta=document.getElementById('pauseCta');
+      if(cta)cta.textContent='AUTO-RESUME IN '+s+' — CLICK TO RESUME';
+    }
+    if(pauseT<=0)resume();
   }
   updateExpress(dt);
   updateTracers(dt);updateParticles(dt);updateSmoke(dt);updateShells(dt);
