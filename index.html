@@ -1216,6 +1216,17 @@ const PLAT=6.5;          // platform half width
 const WALL_X=15.0;       // side wall
 const CEIL=4.6;          // ceiling height
 const BED=-1.25;         // track bed level
+/* North stairwell: the gate at the Z_MIN end stands open. The intro copy always
+   said they come down the stair alcoves — now the alcove goes somewhere. The
+   steps are decoration; this height field is the floor. It is fitted through
+   the profile of the existing nine decorated steps (0.19 rise, ~0.17 run) and
+   continues up six more to a landing at STAIR.h. Everything outside the well
+   returns 0, so the platform and the track bed read exactly as before. */
+const STAIR={x:1.7,z0:-42.0,z1:-44.5,ze:-46.0,mouth:-40.5,h:2.85,s:1.14};
+function groundY(x,z){
+  if(x<-STAIR.x||x>STAIR.x||z>STAIR.z0||z<STAIR.ze)return 0;
+  return Math.min(STAIR.h,(STAIR.z0-z)*STAIR.s);
+}
 const R_NEAR=8.4;        // near track centreline (train)
 const R_FAR=11.7;        // far track centreline (express)
 
@@ -1357,12 +1368,47 @@ function addHit(m){hitTargets.push(m);return m;}
     const st=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.18,0.34),MAT.concrete);
     st.position.set(0,0.18+k*0.19,z+s*(0.15+k*0.16));world.add(st);
   }
+  /* The Z_MAX gate stays shut (set dressing as always). The Z_MIN gate is
+     gone — that stairwell is open, see the upper flight built below. */
+  if(i===1){
   const gate=new THREE.Mesh(new THREE.BoxGeometry(3.6,2.2,0.1),
       new THREE.MeshStandardMaterial({color:0x3c3f43,roughness:.6,metalness:.7,
         transparent:true,opacity:.9}));
   gate.position.set(0,1.5,z+s*0.05);world.add(addHit(gate));
+  }
   fixtures.push({p:new THREE.Vector3(0,2.6,z-s*1.6),c:0xffb45e,i:14,d:11});
 });
+
+/* North stairwell upper flight: six steps continuing the decorated run, a
+   landing at STAIR.h, dark walls, a black doorway and a red glow suggesting
+   depths above. Deliberately NO real light up here — the punctual-light count
+   is a hard fragment-cost contract (see the pool comment) — the additive glow
+   plane and the eye colours carry it in the dark instead. Everything is a
+   hit target, so bullets spark and LOS rays treat the structure as solid. */
+{
+  const stepGeo=new THREE.BoxGeometry(3.4,0.19,0.34);
+  for(let i=0;i<6;i++){
+    const st=new THREE.Mesh(stepGeo,MAT.concrete);
+    st.position.set(0,1.90+0.19*i-0.095,-43.60-0.167*i);
+    world.add(addHit(st));
+  }
+  const landing=new THREE.Mesh(new THREE.BoxGeometry(4.4,0.2,2.1),MAT.concrete);
+  landing.position.set(0,2.75,-45.55);world.add(addHit(landing));
+  const dark=new THREE.MeshStandardMaterial({color:0x14161a,roughness:.9});
+  [-2.325,2.325].forEach(wx=>{
+    const wl=new THREE.Mesh(new THREE.BoxGeometry(0.25,4.1,3.1),dark);
+    wl.position.set(wx,3.85,-45.05);world.add(addHit(wl));
+  });
+  const cap=new THREE.Mesh(new THREE.BoxGeometry(4.9,0.2,3.3),dark);
+  cap.position.set(0,5.85,-45.05);world.add(addHit(cap));
+  const door=new THREE.Mesh(new THREE.PlaneGeometry(3.6,2.6),
+      new THREE.MeshBasicMaterial({color:0x050505,side:THREE.DoubleSide}));
+  door.position.set(0,4.15,-46.55);world.add(door);
+  const glow=new THREE.Mesh(new THREE.PlaneGeometry(1.5,1.5),
+      new THREE.MeshBasicMaterial({map:TEX.glow,transparent:true,color:0xff2a1e,
+        blending:THREE.AdditiveBlending,depthWrite:false,opacity:.3}));
+  glow.position.set(0,4.0,-46.4);world.add(glow);
+}
 
 /* --------------------------------------------------------------- ceiling */
 {
@@ -2016,6 +2062,10 @@ function addDecal(pos,normal,size,mat){
   if(decals.length>MAX_DECALS){const d=decals.shift();fxRoot.remove(d);d.geometry.dispose();}
 }
 function bloodDecal(x,z,size){
+  /* No decals inside the stairwell: they are ground planes at platform height
+     and would float under the ramp. Blood bursts still run — only the floor
+     stain is skipped. */
+  if(Math.abs(x)<STAIR.x+0.5&&z<STAIR.z0+1.5)return;
   const y=Math.abs(x)>PLAT+0.25?BED:0.02;
   const m=new THREE.Mesh(new THREE.PlaneGeometry(size,size),bloodDecalMat);
   m.rotation.x=-Math.PI/2;m.rotation.z=rand(0,TAU);
@@ -2349,6 +2399,16 @@ function updateEnemies(dt){
     const inv=dist>0.001?1/dist:0;
     let mx=dx*inv, mz=dz*inv;
 
+    /* Player holding the landing: the pack funnels through the stairwell mouth
+       instead of pressing the end wall below them. Only the feet change their
+       target — dx/dz/dist stay pointed at the player, so combat range, windups
+       and the flank scoring above all read exactly as before. */
+    if(e.state==='walk'&&player.y>1.2&&player.pos.z<STAIR.mouth+2.0&&
+       e.pos.z>STAIR.mouth&&Math.abs(e.pos.x)<PLAT){
+      mx=-e.pos.x;mz=STAIR.mouth-e.pos.z;
+      const sl=Math.hypot(mx,mz)||1;mx/=sl;mz/=sl;
+    }
+
     for(let b=0;b<blockers.length;b++){
       const bl=blockers[b];
       const ddx=e.pos.x-bl.x, ddz=e.pos.z-bl.z;
@@ -2414,12 +2474,16 @@ function updateEnemies(dt){
     if(e.hurt>0)e.hurt-=dt;
 
     /* Enemies reach further past the end walls than the player can, so backing
-       into a corner leaves room for something to get behind you. */
-    e.pos.z=clamp(e.pos.z,Z_MIN+0.55,Z_MAX-0.55);
+       into a corner leaves room for something to get behind you — except in the
+       stairwell, whose landing rails hold them inside the walls like you. */
+    const eInStair=Math.abs(e.pos.x)<=STAIR.x+0.3;
+    e.pos.z=clamp(e.pos.z,eInStair?STAIR.ze:Z_MIN+0.55,Z_MAX-0.55);
+    if(e.pos.z<STAIR.z0&&eInStair)e.pos.x=clamp(e.pos.x,-STAIR.x,STAIR.x);
     const onPlat=Math.abs(e.pos.x)<PLAT-0.25;
     const targetY=(e.state==='exit')?0:
-      (onPlat?0:(Math.abs(e.pos.x)<PLAT+0.6?lerp(BED,0,(PLAT+0.6-Math.abs(e.pos.x))/0.85):BED));
-    e.pos.y=lerp(e.pos.y,clamp(targetY,BED,0),Math.min(1,dt*7));
+      (onPlat?groundY(e.pos.x,e.pos.z):
+       (Math.abs(e.pos.x)<PLAT+0.6?lerp(BED,0,(PLAT+0.6-Math.abs(e.pos.x))/0.85):BED));
+    e.pos.y=lerp(e.pos.y,clamp(targetY,BED,STAIR.h),Math.min(1,dt*7));
     e.pos.x=clamp(e.pos.x,-WALL_X+1,WALL_X-1);
 
     /* animation */
@@ -2924,11 +2988,16 @@ function updatePlayer(dt){
   player.pos.z+=player.vel.z*dt;
 
   if(touch.jump){touch.jump=false;if(player.onGround){player.vy=7.1;player.onGround=false;}}
+  /* The stairwell is the only terrain: on the ground, y follows groundY (walk
+     up or down the ramp); airborne, you land on it. Everywhere else groundY
+     returns 0 and this is byte-identical to the old floor. */
+  const gy=groundY(player.pos.x,player.pos.z);
+  if(player.onGround)player.y=gy;
   const prevVy=player.vy;
   player.vy-=24*dt;
   player.y+=player.vy*dt;
-  if(player.y<=0){
-    player.y=0;player.vy=0;player.onGround=true;
+  if(player.y<=gy){
+    player.y=gy;player.vy=0;player.onGround=true;
     if(prevVy<-6)SFX.land(0.3);
     else if(prevVy<-3.4)SFX.land(0.17);
   } else player.onGround=false;
@@ -2936,7 +3005,11 @@ function updatePlayer(dt){
   /* Pulled in from 1.6 so a corner-camper leaves usable ground behind them;
      enemies clamp to 0.55 from the end wall and can now get round the back. */
   player.pos.x=clamp(player.pos.x,-PLAT+0.42,PLAT-0.42);
-  player.pos.z=clamp(player.pos.z,Z_MIN+3.0,Z_MAX-3.0);
+  /* Region-aware north clamp: the world ends at Z_MIN+3 except through the
+     stairwell mouth, where the landing rails hold you inside the walls. */
+  const inStair=Math.abs(player.pos.x)<=STAIR.x+0.3;
+  player.pos.z=clamp(player.pos.z,inStair?STAIR.ze:Z_MIN+3.0,Z_MAX-3.0);
+  if(player.pos.z<STAIR.z0)player.pos.x=clamp(player.pos.x,-STAIR.x,STAIR.x);
 
   for(let i=0;i<blockers.length;i++){
     const b=blockers[i];
@@ -3112,6 +3185,15 @@ function startWave(){
    line of spawn logic. A share of each wave now arrives from the tunnel mouth
    and the stair alcove at whichever end the player is nearest. */
 function spawnFlank(type){
+  /* The north gate stands open: from wave 3 a share arrives down the stairwell
+     from the dark landing above — behind a player who holds it, above a player
+     who does not. The sketch's height bias: camping the landing doubles the
+     share, because that is where the pressure belongs. Conductors are too big
+     for the stairwell and never come down it — a siege at the mouth instead. */
+  if(waveNum>=3&&type!=='conductor'&&Math.random()<(player.y>1.2?0.35:0.15)){
+    spawnZombie(type,rand(-1.1,1.1),STAIR.h,rand(-45.8,-44.9),{});
+    return;
+  }
   const pz=player.pos.z;
   const nearEnd=pz>0?1:-1;
   const end=(Math.random()<0.72?nearEnd:-nearEnd);
