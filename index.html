@@ -3044,7 +3044,10 @@ function updatePlayer(dt){
       player.pos.x+=pushX*k;player.pos.z+=pushZ*k;
     }
     player.pos.x=clamp(player.pos.x,-PLAT+0.42,PLAT-0.42);
-    player.pos.z=clamp(player.pos.z,Z_MIN+3.0,Z_MAX-3.0);
+    /* Same region-aware bounds as the main clamp above — the stairwell mouth
+       must survive the enemy-push pass too, or the well is unwalkable. */
+    player.pos.z=clamp(player.pos.z,inStair?STAIR.ze:Z_MIN+3.0,Z_MAX-3.0);
+    if(player.pos.z<STAIR.z0)player.pos.x=clamp(player.pos.x,-STAIR.x,STAIR.x);
   }
 
   const sp=Math.hypot(player.vel.x,player.vel.z);
