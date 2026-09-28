@@ -246,7 +246,7 @@
     <p class="sub">The last train never came. Something came down the tunnel instead.
       Hold the platform. Every wave, the northbound pulls in and the doors open
       onto more of them. They come down the tunnel mouths and the stair alcoves too,
-      and some of them no longer stand up — check the floor. Headshots tear through.</p>
+      and some of them no longer stand up, so check the floor. Headshots tear through.</p>
     <div class="keys">
       <span><b>WASD</b>move</span><span><b>SHIFT</b>sprint</span><span><b>SPACE</b>jump</span>
       <span><b>MOUSE</b>aim</span><span><b>LMB</b>fire</span><span><b>RMB</b>aim down sights</span>
@@ -258,7 +258,7 @@
       <div class="chip on" id="dCasual">EASY</div>
       <div class="chip" id="dSurv">HERO</div>
     </div>
-    <div class="note" id="note">Ammunition comes off the bodies — you have to go and get it. Look down. The wounds stay behind. Wave 15 is THE LAST TRAIN — hold it to forge a New Game+.</div>
+    <div class="note" id="note">Ammunition comes off the bodies. You have to go and get it. Look down. The wounds stay behind. Wave 15 is THE LAST TRAIN: hold it to forge a New Game+.</div>
   </div>
 </div>
 
@@ -756,6 +756,57 @@ function mkTex(canvas,rx,ry,srgb){
   if(srgb!==false) t.colorSpace=THREE.SRGBColorSpace;
   return t;
 }
+/* ------------------------------------------------------- normal maps
+   Tangent-space normals, derived from the albedo canvases that are already
+   being painted. Nothing new is authored: a Sobel over luminance finds the
+   relief the grout lines, splotches and strokes already describe, so the
+   surfaces respond to the strip lights instead of shading flat across their
+   whole area. Boot-time CPU only — no per-frame cost, and the maps are
+   memoised by canvas, so the forty-odd surfaces that clone a shared base still
+   share one GPU upload. Only the sampler state (repeat) differs between them,
+   and clone() keeps the same Source, which is why that works. */
+const NRM=new Map();
+function normalFromCanvas(canvas,strength){
+  const w=canvas.width,h=canvas.height;
+  const src=canvas.getContext('2d').getImageData(0,0,w,h).data;
+  const lum=new Float32Array(w*h);
+  for(let i=0,p=0;i<src.length;i+=4,p++)
+    lum[p]=(src[i]*0.299+src[i+1]*0.587+src[i+2]*0.114)/255;
+  const out=new Uint8Array(w*h*4);
+  const wrap=(v,n)=>((v%n)+n)%n;
+  const at=(x,y)=>lum[wrap(y,h)*w+wrap(x,w)];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const tl=at(x-1,y-1),tc=at(x,y-1),tr=at(x+1,y-1);
+    const ml=at(x-1,y),                mr=at(x+1,y);
+    const bl=at(x-1,y+1),bc=at(x,y+1),br=at(x+1,y+1);
+    const dx=(tr+2*mr+br)-(tl+2*ml+bl);
+    const dy=(br+2*bc+bl)-(tr+2*tc+tl);
+    let nx=-dx*strength,ny=dy*strength,nz=1;
+    const inv=1/Math.sqrt(nx*nx+ny*ny+1);nx*=inv;ny*=inv;nz*=inv;
+    const o=(y*w+x)*4;
+    out[o]=(nx*0.5+0.5)*255;out[o+1]=(ny*0.5+0.5)*255;out[o+2]=(nz*0.5+0.5)*255;out[o+3]=255;
+  }
+  const t=new THREE.DataTexture(out,w,h,THREE.RGBAFormat);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  /* CanvasTexture is flipY by default and DataTexture is not, and the Sobel
+     above runs in canvas rows. Without this the relief inverts vertically and
+     the grout reads as ridges instead of grooves. */
+  t.flipY=true;
+  t.anisotropy=ANISO;
+  t.needsUpdate=true;
+  return t;
+}
+function addNormal(mat,strength){
+  if(!mat.map)return mat;
+  const s=strength===undefined?0.6:strength;
+  let base=NRM.get(mat.map.image);
+  if(!base){base=normalFromCanvas(mat.map.image,s);NRM.set(mat.map.image,base);}
+  const r=mat.map.repeat;
+  if(r.x===1&&r.y===1)mat.normalMap=base;          // share, no clone
+  else{const c=base.clone();c.repeat.copy(r);mat.normalMap=c;}
+  return mat;
+}
+
 function noiseOverlay(x,w,h,amt){
   const id=x.getImageData(0,0,w,h),d=id.data;
   for(let i=0;i<d.length;i+=4){
@@ -1010,6 +1061,45 @@ function texStandClear(){
   x.globalCompositeOperation='source-over';
   return c;
 }
+/* The author's tag. Painted black on the tile face, in the gaps between the ad
+   frames — not in a frame, not on the ad rhythm, and not lit the way the ads
+   are, because then it would just be another advertisement. Alpha does all the
+   work: the canvas is transparent everywhere except the overspray, the letters
+   and the runs, so the tiles and their grout show through and it reads as paint
+   on the wall rather than a decal stuck on it. */
+function texGraffiti(){
+  const W=512,H=192,c=cvs(W,H),x=c.getContext('2d');
+  /* overspray first, so the letters sit on top of it rather than floating */
+  for(let i=0;i<46;i++){
+    const px=rand(30,W-30),py=rand(34,H-30),r=rand(16,54);
+    const g=x.createRadialGradient(px,py,0,px,py,r);
+    g.addColorStop(0,'rgba(9,9,12,0.11)');
+    g.addColorStop(1,'rgba(9,9,12,0)');
+    x.fillStyle=g;x.fillRect(px-r,py-r,r*2,r*2);
+  }
+  x.fillStyle='rgba(8,8,10,0.93)';
+  x.textAlign='center';x.textBaseline='middle';
+  x.font='900 '+(H*0.62)+'px "Arial Black","Arial Bold",Arial,Helvetica,sans-serif';
+  /* three passes a couple of pixels apart thicken the stroke and take the
+     mechanical edge off a single clean fill */
+  for(let i=0;i<3;i++){
+    x.save();
+    x.translate(W/2+rand(-2.5,2.5),H*0.52+rand(-3,3));
+    x.rotate(rand(-0.02,0.02));
+    x.fillText('AGGY',0,0);
+    x.restore();
+  }
+  /* runs, from the bottom of the letters, thinning to nothing */
+  for(let i=0;i<14;i++){
+    const dx=rand(W*0.16,W*0.84),top=H*0.66+rand(-8,6),len=rand(12,54);
+    const grd=x.createLinearGradient(0,top,0,top+len);
+    grd.addColorStop(0,'rgba(8,8,10,0.80)');
+    grd.addColorStop(1,'rgba(8,8,10,0)');
+    x.fillStyle=grd;
+    x.fillRect(dx,top,rand(2,4.5),len);
+  }
+  return c;
+}
 function texTrainSkin(){
   const W=256,H=256,c=cvs(W,H),x=c.getContext('2d');
   x.fillStyle='#b9bdc2';x.fillRect(0,0,W,H);
@@ -1027,6 +1117,23 @@ function texGlow(){
   g.addColorStop(.25,'rgba(255,241,204,.75)');
   g.addColorStop(.55,'rgba(255,190,90,.22)');
   g.addColorStop(1,'rgba(255,160,50,0)');
+  x.fillStyle=g;x.fillRect(0,0,S,S);
+  return c;
+}
+/* Alpha-only falloff for every fake contact shadow in the station. The quad was
+   already there — a circle at a fixed opacity reads as paint, because a real
+   contact shadow is dark where the object touches the ground and gone a hand's
+   width away. Swapping the flat opacity for this costs no draw call, no extra
+   fill and no new geometry, which is the whole reason it is worth doing before
+   anything that adds an AO pass. Reached through map alpha, so the material's
+   colour stays black and its opacity stays the ceiling. */
+function texContact(){
+  const S=128,c=cvs(S,S),x=c.getContext('2d');
+  const g=x.createRadialGradient(S/2,S/2,0,S/2,S/2,S/2);
+  g.addColorStop(0,'rgba(255,255,255,1)');
+  g.addColorStop(.40,'rgba(255,255,255,.62)');
+  g.addColorStop(.70,'rgba(255,255,255,.20)');
+  g.addColorStop(1,'rgba(255,255,255,0)');
   x.fillStyle=g;x.fillRect(0,0,S,S);
   return c;
 }
@@ -1154,12 +1261,14 @@ TEX.ads=[0,1,2,3].map(k=>mkTex(texAd(k),1,1));
 TEX.plaque=mkTex(texPlaque('ASHWORTH ST'),1,1);
 TEX.vest=mkTex(texVest(),1,1);
 TEX.skin=mkTex(texSkin(),1,1);
+TEX.contact=mkTex(texContact(),1,1);
+TEX.graffiti=mkTex(texGraffiti(),1,1);
 
 /* =============================================================== MATERIALS */
 const MAT={
-  steel:new THREE.MeshStandardMaterial({map:TEX.steel,color:0x6c7075,roughness:.62,metalness:.72}),
+  steel:addNormal(new THREE.MeshStandardMaterial({map:TEX.steel,color:0x6c7075,roughness:.62,metalness:.72}),0.35),
   darkSteel:new THREE.MeshStandardMaterial({color:0x14171a,roughness:.55,metalness:.8}),
-  plinth:new THREE.MeshStandardMaterial({map:TEX.plinth,roughness:.94,metalness:0}),
+  plinth:addNormal(new THREE.MeshStandardMaterial({map:TEX.plinth,roughness:.94,metalness:0}),0.5),
   concrete:new THREE.MeshStandardMaterial({color:0x8f918a,roughness:.96,metalness:0}),
   rail:new THREE.MeshStandardMaterial({color:0x9aa0a4,roughness:.28,metalness:.95}),
   tie:new THREE.MeshStandardMaterial({color:0x241d16,roughness:.98,metalness:0}),
@@ -1169,6 +1278,36 @@ const MAT={
   glassDark:new THREE.MeshStandardMaterial({color:0x0a0d10,roughness:.16,metalness:.5}),
 };
 
+/* --------------------------------------------------------------- chamferBox
+   A box with all twelve edges taken off. A 90-degree corner has no facet facing
+   the light, so a hard box reads as a flat fill and the eye can see the seam
+   where two faces meet at full brightness. A bevel gives every edge a facet
+   that catches the strip lights, which is most of what separates "made" from
+   "drawn".
+
+   ExtrudeGeometry with one bevel segment and one segment per corner, so each
+   edge is a flat bevel rather than a curve — about five times the triangles of
+   a BoxGeometry. That is a vertex and triangle cost, and this station is bound
+   by fragments, so it is the cheap kind of spend. Non-indexed on purpose:
+   computeVertexNormals across shared vertices would average the bevel back into
+   the faces and round it off, which is the opposite of the point. */
+function chamferBox(w,h,d,c){
+  c=Math.min(c,w*0.24,h*0.24,d*0.24);
+  const W=(w-2*c)/2,H=(h-2*c)/2,dep=d-2*c;
+  const s=new THREE.Shape();
+  s.moveTo(W-c,-H);
+  s.lineTo(W,-H+c); s.lineTo(W,H-c); s.lineTo(W-c,H);
+  s.lineTo(-W+c,H); s.lineTo(-W,H-c); s.lineTo(-W,-H+c); s.lineTo(-W+c,-H);
+  s.closePath();
+  const g=new THREE.ExtrudeGeometry(s,{depth:dep,bevelEnabled:true,
+    bevelThickness:c,bevelSize:c,bevelSegments:1,steps:1});
+  g.translate(0,0,-dep/2);          // extrusion runs 0..dep, the bevel adds +-c
+  const f=g.toNonIndexed();
+  f.computeVertexNormals();
+  g.dispose();
+  return f;
+}
+
 /* ------------------------------------------------- shared prop resources
    Every prop builder below used to call `new THREE.BoxGeometry(...)` and often
    `new THREE.MeshStandardMaterial(...)` inline, so seven identical benches meant
@@ -1177,29 +1316,29 @@ const MAT={
    shape — same visuals, a fraction of the GPU objects and state changes.
    Signal lamps stay per-instance: updateSignals() mutates their colour. */
 const PG={
-  benchSeat  :new THREE.BoxGeometry(1.9,0.07,0.19),
-  benchBack  :new THREE.BoxGeometry(1.9,0.19,0.07),
-  benchLeg   :new THREE.BoxGeometry(0.08,0.46,0.9),
-  benchArm   :new THREE.BoxGeometry(0.07,0.62,0.07),
+  benchSeat  :chamferBox(1.9,0.07,0.19,0.015),
+  benchBack  :chamferBox(1.9,0.19,0.07,0.015),
+  benchLeg   :chamferBox(0.08,0.46,0.9,0.012),
+  benchArm   :chamferBox(0.07,0.62,0.07,0.010),
   benchShadow:new THREE.CircleGeometry(1.3,16),
   lampBulb   :new THREE.SphereGeometry(0.15,10,8),
   lampCage   :new THREE.TorusGeometry(0.19,0.02,6,12),
   binBody    :new THREE.CylinderGeometry(0.42,0.36,0.95,14,1,true),
   binRim     :new THREE.TorusGeometry(0.42,0.045,6,18),
   binBag     :new THREE.SphereGeometry(0.4,10,7),
-  vendBody   :new THREE.BoxGeometry(1.1,1.95,0.72),
+  vendBody   :chamferBox(1.1,1.95,0.72,0.030),
   vendFace   :new THREE.PlaneGeometry(0.86,1.4),
-  vendSlot   :new THREE.BoxGeometry(0.8,0.22,0.06),
-  signPanel  :new THREE.BoxGeometry(3.0,0.75,0.08),
+  vendSlot   :chamferBox(0.8,0.22,0.06,0.012),
+  signPanel  :chamferBox(3.0,0.75,0.08,0.015),
   signRod    :new THREE.CylinderGeometry(0.02,0.02,1.0,6),
-  sigPost    :new THREE.BoxGeometry(0.08,1.4,0.08),
-  sigBox     :new THREE.BoxGeometry(0.18,0.5,0.12),
+  sigPost    :chamferBox(0.08,1.4,0.08,0.012),
+  sigBox     :chamferBox(0.18,0.5,0.12,0.015),
   sigLamp    :new THREE.CircleGeometry(0.05,10),
   ratBody    :new THREE.SphereGeometry(0.09,8,6),
   ratTail    :new THREE.CylinderGeometry(0.012,0.004,0.28,4)
 };
 const PM={
-  benchShadow:new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.3,depthWrite:false}),
+  benchShadow:new THREE.MeshBasicMaterial({map:TEX.contact,color:0,transparent:true,opacity:.3,depthWrite:false}),
   lampBulb   :new THREE.MeshBasicMaterial({color:0xffcf8a}),
   binBody    :new THREE.MeshStandardMaterial({color:0x1e2124,roughness:.7,metalness:.55,side:THREE.DoubleSide}),
   binBag     :new THREE.MeshStandardMaterial({color:0x0d0f10,roughness:.5}),
@@ -1250,7 +1389,7 @@ function addHit(m){hitTargets.push(m);return m;}
 {
   const t=TEX.floor.clone(); t.needsUpdate=true; t.repeat.set(3.2,20);
   const m=new THREE.Mesh(new THREE.PlaneGeometry(PLAT*2,LEN),
-    new THREE.MeshStandardMaterial({map:t,roughness:.93,metalness:.02}));
+    addNormal(new THREE.MeshStandardMaterial({map:t,roughness:.93,metalness:.02}),0.7));
   m.rotation.x=-Math.PI/2; m.position.set(0,0,(Z_MIN+Z_MAX)/2);
   world.add(addHit(m));
 }
@@ -1268,7 +1407,7 @@ function addHit(m){hitTargets.push(m);return m;}
 [-1,1].forEach(s=>{
   const t=TEX.tactile.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,60);t.needsUpdate=true;
   const m=new THREE.Mesh(new THREE.PlaneGeometry(0.62,LEN),
-      new THREE.MeshStandardMaterial({map:t,roughness:.8}));
+      addNormal(new THREE.MeshStandardMaterial({map:t,roughness:.8}),1.2));
   m.rotation.x=-Math.PI/2;m.position.set(s*(PLAT-0.42),0.012,(Z_MIN+Z_MAX)/2);
   world.add(m);
   for(let z=Z_MIN+9;z<Z_MAX-6;z+=15){
@@ -1284,7 +1423,7 @@ function addHit(m){hitTargets.push(m);return m;}
 [-1,1].forEach(s=>{
   const t=TEX.ballast.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,26);t.needsUpdate=true;
   const bed=new THREE.Mesh(new THREE.PlaneGeometry(WALL_X-PLAT,LEN),
-      new THREE.MeshStandardMaterial({map:t,roughness:1}));
+      addNormal(new THREE.MeshStandardMaterial({map:t,roughness:1}),1.2));
   bed.rotation.x=-Math.PI/2;bed.position.set(s*(PLAT+(WALL_X-PLAT)/2),BED,(Z_MIN+Z_MAX)/2);
   world.add(addHit(bed));
   [-0.72,0.72].forEach(o=>{
@@ -1313,7 +1452,7 @@ function addHit(m){hitTargets.push(m);return m;}
 [-1,1].forEach(s=>{
   const t=TEX.tiles.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(16,1.5);t.needsUpdate=true;
   const wall=new THREE.Mesh(new THREE.PlaneGeometry(LEN,6.3),
-      new THREE.MeshStandardMaterial({map:t,roughness:.55,metalness:.02}));
+      addNormal(new THREE.MeshStandardMaterial({map:t,roughness:.55,metalness:.02}),1.0));
   wall.rotation.y=s>0?-Math.PI/2:Math.PI/2;
   wall.position.set(s*WALL_X,BED+3.15,(Z_MIN+Z_MAX)/2);
   world.add(addHit(wall));
@@ -1324,7 +1463,7 @@ function addHit(m){hitTargets.push(m);return m;}
   world.add(base);
   const mt=TEX.mosaic.clone();mt.wrapS=mt.wrapT=THREE.RepeatWrapping;mt.repeat.set(30,1);mt.needsUpdate=true;
   const band=new THREE.Mesh(new THREE.PlaneGeometry(LEN,0.62),
-      new THREE.MeshStandardMaterial({map:mt,roughness:.42,metalness:.05}));
+      addNormal(new THREE.MeshStandardMaterial({map:mt,roughness:.42,metalness:.05}),1.0));
   band.rotation.y=wall.rotation.y;
   band.position.set(s*(WALL_X-0.03),3.05,(Z_MIN+Z_MAX)/2);
   world.add(band);
@@ -1350,12 +1489,34 @@ function addHit(m){hitTargets.push(m);return m;}
   }
 });
 
+/* Three marks, alternating walls, on the gaps between the ad frames — enough
+   that it reads as one person's tag and not enough to become wallpaper. Not a
+   hit target: it is paint on a wall the player can never reach, so a shot that
+   misses it should still strike the wall behind. */
+{
+  const g=new THREE.MeshStandardMaterial({map:TEX.graffiti,transparent:true,
+    roughness:.92,metalness:0,depthWrite:false});
+  [[-1,-26.25],[1,-0.75],[-1,16.25]].forEach(([s,z])=>{
+    const t=new THREE.Mesh(new THREE.PlaneGeometry(2.4,0.9),g);
+    t.rotation.y=s>0?-Math.PI/2:Math.PI/2;
+    t.rotation.z=rand(-0.04,0.04);
+    t.position.set(s*(WALL_X-0.05),1.15,z);
+    world.add(t);
+  });
+}
+
 /* end walls (tunnel portals cut through) */
+/* One buffer for every step in the station: eighteen in the two decorated runs
+   and six in the north flight above. They used to be built inside the loop, so
+   the decorated runs alone were eighteen identical BoxGeometry buffers — the
+   same sharing miss the prop table exists to prevent. Height unified at 0.19,
+   which is the rise the groundY height field was already fitted to. */
+const STAIR_STEP=chamferBox(3.4,0.19,0.34,0.02);
 [Z_MIN,Z_MAX].forEach((z,i)=>{
   const s=i===0?-1:1;
   const t=TEX.tiles.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,1.5);t.needsUpdate=true;
   const w=new THREE.Mesh(new THREE.PlaneGeometry(WALL_X*2,6.3),
-      new THREE.MeshStandardMaterial({map:t,roughness:.6}));
+      addNormal(new THREE.MeshStandardMaterial({map:t,roughness:.6}),1.0));
   w.position.set(0,BED+3.15,z+s*0.02); w.rotation.y=s>0?Math.PI:0;
   world.add(addHit(w));
   [-1,1].forEach(sx=>{
@@ -1370,7 +1531,7 @@ function addHit(m){hitTargets.push(m);return m;}
       new THREE.MeshStandardMaterial({color:0x14161a,roughness:.9}));
   alc.position.set(0,1.6,z+s*0.7);world.add(alc);
   for(let k=0;k<9;k++){
-    const st=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.18,0.34),MAT.concrete);
+    const st=new THREE.Mesh(STAIR_STEP,MAT.concrete);
     st.position.set(0,0.18+k*0.19,z+s*(0.15+k*0.16));world.add(st);
   }
   /* The Z_MAX gate stays shut (set dressing as always). The Z_MIN gate is
@@ -1391,20 +1552,20 @@ function addHit(m){hitTargets.push(m);return m;}
    plane and the eye colours carry it in the dark instead. Everything is a
    hit target, so bullets spark and LOS rays treat the structure as solid. */
 {
-  const stepGeo=new THREE.BoxGeometry(3.4,0.19,0.34);
+  const stepGeo=STAIR_STEP;
   for(let i=0;i<6;i++){
     const st=new THREE.Mesh(stepGeo,MAT.concrete);
     st.position.set(0,1.90+0.19*i-0.095,-43.60-0.167*i);
     world.add(addHit(st));
   }
-  const landing=new THREE.Mesh(new THREE.BoxGeometry(4.4,0.2,2.1),MAT.concrete);
+  const landing=new THREE.Mesh(chamferBox(4.4,0.2,2.1,0.02),MAT.concrete);
   landing.position.set(0,2.75,-45.55);world.add(addHit(landing));
   const dark=new THREE.MeshStandardMaterial({color:0x14161a,roughness:.9});
   [-2.325,2.325].forEach(wx=>{
-    const wl=new THREE.Mesh(new THREE.BoxGeometry(0.25,4.1,3.1),dark);
+    const wl=new THREE.Mesh(chamferBox(0.25,4.1,3.1,0.02),dark);
     wl.position.set(wx,3.85,-45.05);world.add(addHit(wl));
   });
-  const cap=new THREE.Mesh(new THREE.BoxGeometry(4.9,0.2,3.3),dark);
+  const cap=new THREE.Mesh(chamferBox(4.9,0.2,3.3,0.02),dark);
   cap.position.set(0,5.85,-45.05);world.add(addHit(cap));
   const door=new THREE.Mesh(new THREE.PlaneGeometry(3.6,2.6),
       new THREE.MeshBasicMaterial({color:0x050505,side:THREE.DoubleSide}));
@@ -1419,7 +1580,7 @@ function addHit(m){hitTargets.push(m);return m;}
 {
   const t=TEX.ceil.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,14);t.needsUpdate=true;
   const c=new THREE.Mesh(new THREE.PlaneGeometry(WALL_X*2,LEN),
-      new THREE.MeshStandardMaterial({map:t,roughness:.98}));
+      addNormal(new THREE.MeshStandardMaterial({map:t,roughness:.98}),0.8));
   c.rotation.x=Math.PI/2;c.position.set(0,CEIL,(Z_MIN+Z_MAX)/2);
   world.add(addHit(c));
 }
@@ -1448,15 +1609,15 @@ for(let z=Z_MIN+2;z<Z_MAX;z+=9){
 
 /* --------------------------------------------------------------- columns */
 const colGeo={
-  web:new THREE.BoxGeometry(0.34,CEIL-0.45,0.5),
-  cap:new THREE.BoxGeometry(0.78,0.14,0.86),
-  plinth:new THREE.BoxGeometry(0.78,0.46,0.86)
+  web:chamferBox(0.34,CEIL-0.45,0.5,0.020),
+  cap:chamferBox(0.78,0.14,0.86,0.020),
+  plinth:chamferBox(0.78,0.46,0.86,0.025)
 };
 {
   const cols=[];
   for(let z=Z_MIN+4;z<=Z_MAX-4;z+=8) [-4.3,4.3].forEach(x=>cols.push([x,z]));
   const sh=new THREE.InstancedMesh(new THREE.CircleGeometry(0.9,14),
-    new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.32,depthWrite:false}),cols.length);
+    new THREE.MeshBasicMaterial({map:TEX.contact,color:0x000000,transparent:true,opacity:.4,depthWrite:false}),cols.length);
   const mm=new THREE.Matrix4();const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2,0,0));
   const sc=new THREE.Vector3(1,1,1);
   cols.forEach(([x,z],i)=>{
@@ -1481,8 +1642,12 @@ for(let z=Z_MIN+4;z<=Z_MAX-4;z+=8){
 
 /* ------------------------------------------------------- light fixtures */
 function fluorescent(x,y,z,rotY){
-  fixtures.push({p:new THREE.Vector3(x,y-0.3,z),c:0xd8e6f0,i:26,d:16});
-  return {x,y,z,rotY};
+  /* k is the tube's live brightness, written by updateFlicker and read back by
+     the light pool. The fixture sits 0.3 below the tube on purpose — the light
+     should come from under the diffuser, not out of the top of it. */
+  const fix={p:new THREE.Vector3(x,y-0.3,z),c:0xd8e6f0,i:26,d:16,k:1};
+  fixtures.push(fix);
+  return {x,y,z,rotY,fix};
 }
 const fxList=[];
 for(let z=Z_MIN+3;z<Z_MAX;z+=6) fxList.push(fluorescent(-4.9,CEIL-0.42,z));
@@ -1527,16 +1692,21 @@ for(let z=Z_MIN+5;z<Z_MAX;z+=10) fxList.push(fluorescent(0,CEIL-0.5,z,Math.PI/2)
   if(halo.instanceColor)halo.instanceColor.needsUpdate=true;
   hous.frustumCulled=tube.frustumCulled=halo.frustumCulled=false;
   world.add(hous);world.add(tube);world.add(halo);
-  flickers.push({tube:tube,halo:halo,idx:1,t:rand(0.5,3),k:1});
-  flickers.push({tube:tube,halo:halo,idx:18,t:rand(0.5,3),k:1});
-  flickers.push({tube:tube,halo:halo,idx:27,t:rand(0.5,3),k:1});
+  flickers.push({tube:tube,halo:halo,idx:1, t:rand(0.5,3),k:1,fix:fxList[1].fix});
+  flickers.push({tube:tube,halo:halo,idx:18,t:rand(0.5,3),k:1,fix:fxList[18].fix});
+  flickers.push({tube:tube,halo:halo,idx:27,t:rand(0.5,3),k:1,fix:fxList[27].fix});
 }
+/* A failing tube used to dim its own mesh and nothing else, so the room stayed
+   fully lit under a light that had visibly dropped to 12%. The fixture carries
+   the scalar now and the pool applies it per frame, which also means the
+   flicker is not quantised to the pool's 0.25s re-target tick. */
 function updateFlicker(dt){
   for(const f of flickers){
     f.t-=dt;
     if(f.t<=0){
       f.t=rand(0.05,0.4);
       f.k=Math.random()<0.3?rand(0.12,0.5):1;
+      if(f.fix)f.fix.k=f.k;
       f.tube.setColorAt(f.idx,new THREE.Color(0xf4f7ff).multiplyScalar(f.k));
       f.halo.setColorAt(f.idx,new THREE.Color(0xffffff).multiplyScalar(f.k));
       if(f.tube.instanceColor)f.tube.instanceColor.needsUpdate=true;
@@ -1567,12 +1737,13 @@ function updateLightPool(dt,pos){
       const f=scored[i].f;
       pool[i].l.position.copy(f.p);pool[i].l.color.setHex(f.c);
       pool[i].l.distance=f.d;pool[i].targetI=f.i;
+      pool[i].flick=f.k;
     } else pool[i].targetI=0;
   }
 }
 function updatePoolGlow(dt){
   for(const p of pool){
-    p.i=lerp(p.i,p.targetI,Math.min(1,dt*8));
+    p.i=lerp(p.i,p.targetI*(p.flick===undefined?1:p.flick),Math.min(1,dt*8));
     p.l.intensity=p.i;
   }
 }
@@ -1692,7 +1863,7 @@ for(let i=0;i<14;i++){
 {
   const n=26;
   const im=new THREE.InstancedMesh(new THREE.CircleGeometry(1,12),
-    new THREE.MeshBasicMaterial({color:0x0b0d0c,transparent:true,opacity:.17,depthWrite:false}),n);
+    new THREE.MeshBasicMaterial({map:TEX.contact,color:0x0b0d0c,transparent:true,opacity:.22,depthWrite:false}),n);
   const mm=new THREE.Matrix4(),q=new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2,0,0));
   for(let i=0;i<n;i++){
     const s=rand(0.6,2.4);
@@ -1791,55 +1962,87 @@ world.add(train);
 const trainDoors=[];      // {L,R,z,base}
 const CAR_LEN=17, CARS=3;
 
-const matBody=new THREE.MeshStandardMaterial({map:TEX.trainSkin,color:0xd9dde1,roughness:.36,metalness:.72});
+const matBody=addNormal(new THREE.MeshStandardMaterial({map:TEX.trainSkin,color:0xd9dde1,roughness:.36,metalness:.72}),0.3);
 const matStripe=new THREE.MeshStandardMaterial({color:0x1f8a4c,roughness:.4,metalness:.3});
 const matWin=new THREE.MeshStandardMaterial({map:TEX.window,color:0x9fb0bb,roughness:.12,metalness:.6,
   transparent:true,opacity:.72});
 const matDoor=new THREE.MeshStandardMaterial({color:0xc6cace,roughness:.34,metalness:.68});
 const matInner=new THREE.MeshStandardMaterial({color:0x2a3138,roughness:.85,side:THREE.DoubleSide});
 
+/* One buffer per shape for the whole three-car set, not one per car: the roof,
+   skirt, far wall, end caps, doors and grab poles were all built inside the car
+   loop, so three identical copies of each. The two panel widths and their two
+   window sizes are the only variants, so those get two buffers each. Every lit
+   box is chamfered — the carriage is the largest object on screen during the
+   wave, and a hard-edged slab reads as a prop rather than a vehicle. The ceiling
+   light strip stays unchamfered because it is MeshBasicMaterial: unlit, so a
+   bevel has nothing to catch. */
+const CAR={
+  roof  :chamferBox(3.5,0.22,CAR_LEN,0.020),
+  floor :new THREE.BoxGeometry(3.5,0.20,CAR_LEN),      // interior, never lit
+  far   :chamferBox(0.18,2.5,CAR_LEN,0.015),
+  skirt :chamferBox(3.6,1.1,CAR_LEN,0.025),
+  cap   :chamferBox(3.5,2.5,0.2,0.020),
+  door  :chamferBox(0.16,2.28,0.86,0.015),
+  lip   :chamferBox(0.5,0.08,1.9,0.012),
+  pole  :new THREE.CylinderGeometry(0.045,0.045,2.4,8),
+  glass :new THREE.PlaneGeometry(0.62,1.0),
+  farWin:new THREE.PlaneGeometry(2.4,1.0),
+  seg   :{},   // keyed by panel width, filled below
+  win   :{},   // keyed by the same width
+  stripe:{}    // keyed by the same width
+};
+[[-CAR_LEN/2,-6.55],[-4.65,-0.95],[0.95,4.65],[6.55,CAR_LEN/2]].forEach(([a,b])=>{
+  const w=b-a;if(w<=0.02)return;
+  if(!CAR.seg[w]){
+    CAR.seg[w]=chamferBox(0.18,2.5,w,0.015);
+    CAR.win[w]=new THREE.PlaneGeometry(Math.max(w-0.7,0.3),1.0);
+    CAR.stripe[w]=chamferBox(0.06,0.18,w,0.010);
+  }
+});
+
 for(let ci=0;ci<CARS;ci++){
   const car=new THREE.Group();
   const cz=(ci-(CARS-1)/2)*(CAR_LEN+0.7);
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(3.5,0.22,CAR_LEN),matBody);
+  const roof=new THREE.Mesh(CAR.roof,matBody);
   roof.position.set(0,2.42,0);car.add(roof);
-  const floorM=new THREE.Mesh(new THREE.BoxGeometry(3.5,0.2,CAR_LEN),matInner);
+  const floorM=new THREE.Mesh(CAR.floor,matInner);
   floorM.position.set(0,-0.05,0);car.add(floorM);
-  const far=new THREE.Mesh(new THREE.BoxGeometry(0.18,2.5,CAR_LEN),matBody);
+  const far=new THREE.Mesh(CAR.far,matBody);
   far.position.set(-1.66,1.2,0);car.add(far);
-  const skirt=new THREE.Mesh(new THREE.BoxGeometry(3.6,1.1,CAR_LEN),
+  const skirt=new THREE.Mesh(CAR.skirt,
     new THREE.MeshStandardMaterial({color:0x3b4046,roughness:.8,metalness:.4}));
   skirt.position.set(0,-0.65,0);car.add(skirt);
   [-1,1].forEach(s=>{
-    const cap=new THREE.Mesh(new THREE.BoxGeometry(3.5,2.5,0.2),matBody);
+    const cap=new THREE.Mesh(CAR.cap,matBody);
     cap.position.set(0,1.2,s*CAR_LEN/2);car.add(cap);
   });
   const doorZ=[-5.6,0,5.6];
   const segs=[[-CAR_LEN/2,-6.55],[-4.65,-0.95],[0.95,4.65],[6.55,CAR_LEN/2]];
   segs.forEach(([a,b])=>{
     const w=b-a;if(w<=0.02)return;
-    const p=new THREE.Mesh(new THREE.BoxGeometry(0.18,2.5,w),matBody);
+    const p=new THREE.Mesh(CAR.seg[w],matBody);
     p.position.set(1.66,1.2,(a+b)/2);car.add(p);
-    const win=new THREE.Mesh(new THREE.PlaneGeometry(Math.max(w-0.7,0.3),1.0),matWin);
+    const win=new THREE.Mesh(CAR.win[w],matWin);
     win.rotation.y=Math.PI/2;win.position.set(1.78,1.55,(a+b)/2);car.add(win);
-    const st=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.18,w),matStripe);
+    const st=new THREE.Mesh(CAR.stripe[w],matStripe);
     st.position.set(1.78,0.55,(a+b)/2);car.add(st);
   });
   for(let z=-CAR_LEN/2+2;z<CAR_LEN/2-1;z+=3.2){
-    const win=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.0),matWin);
+    const win=new THREE.Mesh(CAR.farWin,matWin);
     win.rotation.y=-Math.PI/2;win.position.set(-1.78,1.55,z);car.add(win);
   }
   doorZ.forEach(dz=>{
     const mk=side=>{
-      const d=new THREE.Mesh(new THREE.BoxGeometry(0.16,2.28,0.86),matDoor);
+      const d=new THREE.Mesh(CAR.door,matDoor);
       d.position.set(1.66,1.14,dz+side*0.44);d.userData.dyn=true;
-      const glass=new THREE.Mesh(new THREE.PlaneGeometry(0.62,1.0),matWin);
+      const glass=new THREE.Mesh(CAR.glass,matWin);
       glass.rotation.y=Math.PI/2;glass.position.set(0.1,0.42,0);d.add(glass);
       car.add(d);return d;
     };
     const L=mk(-1),R=mk(1);
     trainDoors.push({L,R,z:cz+dz,base:dz});
-    const lip=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.08,1.9),
+    const lip=new THREE.Mesh(CAR.lip,
       new THREE.MeshStandardMaterial({color:0x53585d,roughness:.6,metalness:.6}));
     lip.position.set(1.85,0.03,dz);car.add(lip);
   });
@@ -1847,7 +2050,7 @@ for(let ci=0;ci<CARS;ci++){
     new THREE.MeshBasicMaterial({color:0xdfe8f2}));
   strip.position.set(0,2.28,0);car.add(strip);
   for(let z=-CAR_LEN/2+2.5;z<CAR_LEN/2-1;z+=3.6){
-    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,2.4,8),
+    const pole=new THREE.Mesh(CAR.pole,
       new THREE.MeshStandardMaterial({color:0xb9bec2,roughness:.3,metalness:.85}));
     pole.position.set(rand(-0.8,0.8),1.2,z);car.add(pole);
   }
@@ -2173,12 +2376,12 @@ function clearPickups(){pickups.forEach(p=>{fxRoot.remove(p.m);fxRoot.remove(p.h
 /* ================================================================ ENEMIES */
 const enemies=[];
 const EG={
-  torso:new THREE.BoxGeometry(0.88,1.06,0.48),
-  head :new THREE.BoxGeometry(0.58,0.54,0.52),
-  arm  :(()=>{const g=new THREE.BoxGeometry(0.26,0.94,0.26);g.translate(0,-0.47,0);return g;})(),
-  leg  :(()=>{const g=new THREE.BoxGeometry(0.31,1.02,0.33);g.translate(0,-0.51,0);return g;})(),
+  torso:chamferBox(0.88,1.06,0.48,0.045),
+  head :chamferBox(0.58,0.54,0.52,0.04),
+  arm  :(()=>{const g=chamferBox(0.26,0.94,0.26,0.03);g.translate(0,-0.47,0);return g;})(),
+  leg  :(()=>{const g=chamferBox(0.31,1.02,0.33,0.035);g.translate(0,-0.51,0);return g;})(),
   eye  :new THREE.BoxGeometry(0.12,0.07,0.04),
-  hand :new THREE.BoxGeometry(0.28,0.2,0.28),
+  hand :chamferBox(0.28,0.2,0.28,0.03),
   hat  :new THREE.CylinderGeometry(0.17,0.19,0.14,10),
   brim :new THREE.CylinderGeometry(0.26,0.26,0.02,12)
 };
@@ -2188,16 +2391,33 @@ const hatMats=[
   new THREE.MeshStandardMaterial({color:0xd8a437,roughness:.7}),
   new THREE.MeshStandardMaterial({color:0xc9542a,roughness:.7})
 ];
-const shadowMat=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.42,depthWrite:false});
+const shadowMat=new THREE.MeshBasicMaterial({map:TEX.contact,color:0x000000,transparent:true,opacity:.42,depthWrite:false});
 const shadowGeo=new THREE.CircleGeometry(0.55,14);
+
+/* A blob shadow is a level disc laid at the feet, so it only reads correctly on
+   a level floor. Two places here are not level: the track bed, which has always
+   been handled by scaling the quad away, and the stairwell ramp, which is 48
+   degrees — a level disc there slices through the step faces instead of resting
+   on them, which is the same defect bloodDecal() already guards against for the
+   same reason. The well is unlit by contract (see the light pool comment), so a
+   shadow up there could only ever contribute the clipping and never any
+   shading. It gets hidden outright, on the same boundary the decals use, and
+   both the living and the corpse path go through here so they cannot disagree
+   about whether a shadow is showing. */
+function placeShadow(e){
+  const onLevelFloor=e.pos.y>=-0.4&&
+    !(Math.abs(e.pos.x)<STAIR.x+0.5&&e.pos.z<STAIR.z0+1.5);
+  e.shadow.position.set(e.pos.x,e.pos.y+0.02,e.pos.z);
+  e.shadow.scale.setScalar(e.scale*(onLevelFloor?1:0.001));
+}
 
 function makeZombie(type){
   const g=new THREE.Group();
-  const skin=new THREE.MeshStandardMaterial({map:TEX.skin,color:type==='conductor'?0x8b957f:0xffffff,roughness:.86,metalness:0});
+  const skin=addNormal(new THREE.MeshStandardMaterial({map:TEX.skin,color:type==='conductor'?0x8b957f:0xffffff,roughness:.86,metalness:0}),0.4);
   const shirt=type==='conductor'?
     new THREE.MeshStandardMaterial({color:0x26292e,roughness:.85,metalness:.05}):
     (Math.random()<0.32)?
-      new THREE.MeshStandardMaterial({map:TEX.vest,color:0xffffff,roughness:.9,metalness:0}):
+      addNormal(new THREE.MeshStandardMaterial({map:TEX.vest,color:0xffffff,roughness:.9,metalness:0}),0.6):
       new THREE.MeshStandardMaterial({color:pick(shirtCols),roughness:.9,metalness:0});
   const pants=new THREE.MeshStandardMaterial({color:pick(PANTS),roughness:.92,metalness:0});
   /* Crawlers get a cold cyan eye. At a downward glance in a dark station the
@@ -2387,7 +2607,7 @@ function updateEnemies(dt){
         e.refs.mats.forEach(m=>m.dispose());e.shadow.material.dispose();
         enemies.splice(i,1);
       } else {
-        e.shadow.position.set(e.pos.x,e.pos.y+0.02,e.pos.z);
+        placeShadow(e);
       }
       continue;
     }
@@ -2539,8 +2759,7 @@ function updateEnemies(dt){
       e.refs.head.rotation.z=Math.sin(e.phase*0.7)*0.09;
     }
     }
-    e.shadow.position.set(e.pos.x,e.pos.y+0.02,e.pos.z);
-    e.shadow.scale.setScalar(e.scale*(e.pos.y<-0.4?0.001:1));
+    placeShadow(e);
 
     e.growl-=dt;
     if(e.growl<=0){
@@ -2564,8 +2783,18 @@ const GUN_WOOD=new THREE.MeshStandardMaterial({color:0x6b3f1e,roughness:.62,meta
 const GUN_BRASS=new THREE.MeshStandardMaterial({color:0xc9a227,roughness:.3,metalness:.9});
 const SIGHT_G=new THREE.MeshBasicMaterial({color:0x7dff9b});
 
+/* The weapons are the closest geometry in the game: one of them is on screen
+   every frame, at arm's length, with the longest on-screen edges of anything in
+   the scene. They are also the cheapest thing here to chamfer — only one
+   weapon is visible at a time and the whole set is under two thousand
+   triangles. Boxes thinner than a couple of centimetres keep their hard edges:
+   slide serrations, pump grooves, sight posts and the like, where a bevel would
+   be invisible and would cost a third of the box. */
 function box(w,h,d,mat,x,y,z,parent){
-  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  const s=Math.min(w,h,d);
+  const m=new THREE.Mesh(s>=0.025
+    ?chamferBox(w,h,d,s*0.18)
+    :new THREE.BoxGeometry(w,h,d),mat);
   m.position.set(x,y,z);if(parent)parent.add(m);return m;
 }
 function cyl(r1,r2,h,mat,x,y,z,parent,rx){
@@ -3549,7 +3778,7 @@ function pause(){
   setPanel('<div class="kicker">ASHWORTH ST</div><h1>PAUSED</h1><div class="rule"></div>'+
     '<p class="sub">The platform is holding. Take a breath.</p>'+
     '<div class="note">'+(pausesLeft===0?'LAST PAUSE':'PAUSES LEFT '+pausesLeft)+' THIS WAVE</div>'+
-    '<div class="cta" id="pauseCta">AUTO-RESUME IN '+PAUSE_HOLD+' — CLICK TO RESUME</div>');
+    '<div class="cta" id="pauseCta">AUTO-RESUME IN '+PAUSE_HOLD+': CLICK TO RESUME</div>');
   if(document.exitPointerLock)document.exitPointerLock();
   pauseT=PAUSE_HOLD;pauseShown=PAUSE_HOLD;
 }
@@ -3580,7 +3809,7 @@ function victory(){
   let badgeTxt='';
   if(firstBadge>=0){
     badge[firstBadge]=true;
-    badgeTxt='<div class="badge">BADGE EARNED — <b>'+BADGES[firstBadge].n+'</b>: '+BADGES[firstBadge].d+'</div>';
+    badgeTxt='<div class="badge">BADGE EARNED: <b>'+BADGES[firstBadge].n+'</b>. '+BADGES[firstBadge].d+'</div>';
   }
   recordRun();
   ngP++;
@@ -3589,7 +3818,7 @@ function victory(){
   elFlash.style.opacity=0.45;setTimeout(()=>elFlash.style.opacity=0,140);
   setPanel('<div class="kicker">PLATFORM SECURED</div><h1>STATION HELD</h1>'+
     '<div class="rule"></div>'+
-    '<p class="sub">The last train came — and you were still standing on the platform.</p>'+badgeTxt+
+    '<p class="sub">The last train came, and you were still standing on the platform.</p>'+badgeTxt+
     '<div class="stats">'+
       '<div><span>'+waveNum+'</span><em>WAVES HELD</em></div>'+
       '<div><span>'+stats.kills+'</span><em>KILLS</em></div>'+
@@ -3597,8 +3826,8 @@ function victory(){
       '<div><span>'+score.toLocaleString()+'</span><em>SCORE</em></div>'+
     '</div>'+
     '<div class="note">RUN TIME '+fmtT(runT)+' · BEST SCORE '+(bestRun.score||0).toLocaleString()+'</div>'+
-    '<div class="cta">NEW GAME+ '+ngP+' — CLICK TO BOARD</div>'+
-    '<div class="quitline" id="quitBtn">PRESS <b>Q</b> — QUIT TO TITLE</div>');
+    '<div class="cta">NEW GAME+ '+ngP+': CLICK TO BOARD</div>'+
+    '<div class="quitline" id="quitBtn">PRESS <b>Q</b> TO QUIT TO TITLE</div>');
   elScreens.classList.remove('hide');
   setPrestigeLine();
   if(document.exitPointerLock)document.exitPointerLock();
@@ -3620,7 +3849,7 @@ function gameOver(){
     '</div>'+
     '<div class="note">RUN TIME '+fmtT(runT)+' · BEST SCORE '+(bestRun?bestRun.score:0).toLocaleString()+'</div>'+
     '<div class="cta">CLICK TO REDEPLOY</div>'+
-    '<div class="quitline" id="quitBtn">PRESS <b>Q</b> — QUIT TO TITLE</div>');
+    '<div class="quitline" id="quitBtn">PRESS <b>Q</b> TO QUIT TO TITLE</div>');
   elScreens.classList.remove('hide');
   if(document.exitPointerLock)document.exitPointerLock();
 }
@@ -3668,7 +3897,7 @@ elScreens.addEventListener('pointerdown',e=>{
       if(!pointerLocked){
         fallbackLook=true;
         const n=document.querySelector('#note');
-        if(n)n.textContent='Mouse lock is blocked here — steering with mouse position instead. Open the file in its own tab for full mouse look.';
+        if(n)n.textContent='Mouse lock is blocked here. Steering with mouse position instead. Open the file in its own tab for full mouse look.';
       }
     },380);
   } else fallbackLook=true;
@@ -3706,7 +3935,7 @@ function frame(now){
     if(s!==pauseShown){
       pauseShown=s;
       const cta=document.getElementById('pauseCta');
-      if(cta)cta.textContent='AUTO-RESUME IN '+s+' — CLICK TO RESUME';
+      if(cta)cta.textContent='AUTO-RESUME IN '+s+': CLICK TO RESUME';
     }
     if(pauseT<=0)resume();
   }

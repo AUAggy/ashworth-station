@@ -17,7 +17,7 @@ python3 -m http.server 8000
 
 It needs a web server rather than a double-click because the page is an ES module that imports three.js by bare specifier. Opened straight off disk as `file://`, the module fetch runs from a null origin and browsers disagree about whether to allow it. Any static host works: GitHub Pages, S3, a USB stick behind nginx, `python3 -m http.server`.
 
-**The file:** `index.html` — 3,670 lines, ~160 KB — plus the engine it imports, vendored under `vendor/` (~680 KB), and a 46-line service worker. No images, no audio files, no fonts, no build step, no server, and no network dependency at all: the engine is vendored, and the service worker precaches the lot, so the game boots with no internet and an empty browser cache. Needs WebGL; if the browser can't give it a context, the title screen says so instead of failing silently.
+**The file:** `index.html` (3,670 lines, ~160 KB) plus the engine it imports, vendored under `vendor/` (~680 KB), and a 46-line service worker. No images, no audio files, no fonts, no build step, no server, and no network dependency at all: the engine is vendored, and the service worker precaches the lot, so the game boots with no internet and an empty browser cache. Needs WebGL; if the browser can't give it a context, the title screen says so instead of failing silently.
 
 The rest of this is how it got that way, and it is mostly a story about things that broke.
 
@@ -61,13 +61,13 @@ Few playtest rounds ended in a crash. Crashes are easy; you get a stack trace an
 
 Read the list again and it sorts itself into three piles. Three rows are iOS specifically, a fourth is telling a touchscreen apart from a touch-first device, and three more are a GPU that cannot afford the work being asked of it. That is one constraint. The next four are a game that has to survive on its own with nobody to restart the server, because there is no server.
 
-The last four rows are a different animal, and they took the longest to see. Nothing about them is a platform quirk or a performance ceiling. The code did exactly what it said, the frame rate was fine, and the game was still wrong — forgiving where it should have been dangerous, silent where it should have been legible, and holding one safe tile that a child found in two runs. Those do not show up in a profiler. They show up as somebody enjoying the game for the wrong reason.
+The last four rows are a different animal, and they took the longest to see. Nothing about them is a platform quirk or a performance ceiling. The code did exactly what it said, the frame rate was fine, and the game was still wrong: forgiving where it should have been dangerous, silent where it should have been legible, and holding one safe tile that a child found in two runs. Those do not show up in a profiler. They show up as somebody enjoying the game for the wrong reason.
 
 So, derived rather than declared:
 
 1. **The kid plays on an iPad.** Touch input, small screens, short attention, no patience for a game that stutters or a game that cheats.
 2. **The deliverable is one file.** A link has to be enough. No install, no assets folder, no account, no telemetry, nothing to break.
-3. **The game has to be able to beat you.** It is built to be lost, so anything that quietly makes losing optional — a swing that never lands, a crowd you can walk through, a corner with a wall behind it — is not generosity. It is the game failing at its only job.
+3. **The game has to be able to beat you.** It is built to be lost, so anything that quietly makes losing optional (a swing that never lands, a crowd you can walk through, a corner with a wall behind it) is not generosity. It is the game failing at its only job.
 
 Everything below is those three, followed to their conclusions.
 
@@ -81,9 +81,9 @@ Touch: left thumb on an analog stick, right thumb aims anywhere, and dedicated `
 
 The fire button is also an aim zone: hold to shoot, drag to look, one thumb. That was a bug report from a nine-year-old before it was a feature. Kids grip the fire button and expect the same thumb to steer, and fighting that instinct loses.
 
-Pause is rationed: three presses a wave, and a press buys three seconds, because the card counts itself down and drops you back in whether you are ready or not. Spend the ration and the wave keeps running while you reload in the open — the press is denied, the banner says so, and the next wave hands the three back. On desktop the count also covers the pause a lost pointer lock gives you, because the browser taking the mouse away is the same press as any other; when the ration is spent, a click on the view takes the lock back instead of freezing the run. ESC used to be a wall the horde could not cross, free to hold for as long as the holder liked whenever the platform got loud. A game built to be lost cannot sell infinite time-outs, so the wall got a price and a timer.
+Pause is rationed: three presses a wave, and a press buys three seconds, because the card counts itself down and drops you back in whether you are ready or not. Spend the ration and the wave keeps running while you reload in the open: the press is denied, the banner says so, and the next wave hands the three back. On desktop the count also covers the pause a lost pointer lock gives you, because the browser taking the mouse away is the same press as any other; when the ration is spent, a click on the view takes the lock back instead of freezing the run. ESC used to be a wall the horde could not cross, free to hold for as long as the holder liked whenever the platform got loud. A game built to be lost cannot sell infinite time-outs, so the wall got a price and a timer.
 
-Waves escalate through 15, from a handful of walkers to a capped 44, with up to 30 on the platform at once. Wave 1 comes out of the tunnel mouths. Most of every wave after that arrives as a train, which pulls in, opens its doors, and unloads — but not all of it. The rest comes from the tunnel mouths and the stair alcoves at whichever end of the platform you are standing nearest, because for a long time a wall at your back was the safest place in the game. Runners and crawlers join at wave 3, brutes at 5, and the last train brings a conductor. Two difficulty chips sit on the title screen: HERO is the real game, touch devices default to EASY, and the choice persists.
+Waves escalate through 15, from a handful of walkers to a capped 44, with up to 30 on the platform at once. Wave 1 comes out of the tunnel mouths. Most of every wave after that arrives as a train, which pulls in, opens its doors, and unloads, but not all of it. The rest comes from the tunnel mouths and the stair alcoves at whichever end of the platform you are standing nearest, because for a long time a wall at your back was the safest place in the game. Runners and crawlers join at wave 3, brutes at 5, and the last train brings a conductor. Two difficulty chips sit on the title screen: HERO is the real game, touch devices default to EASY, and the choice persists.
 
 ### Look down
 
@@ -91,7 +91,7 @@ Crawlers do not stand up. They drag along the platform at ankle height, which pu
 
 Everything that reaches you telegraphs. A zombie in range winds up for between 0.18 and 0.34 seconds before the damage lands, and the hit only registers if you are still there when it does. Brutes and conductors wind up longest and hit hardest. Backing out of a swing is a real option. Standing still is not, because they close inside their own reach now and push you where they want you, and when something hits you from behind an arrow tells you which way to turn.
 
-Health does not fully come back. Out of contact it regenerates to 70 and stops, 85 on EASY. Past that you need a medkit, which drops from brutes and conductors and occasionally from anything else, but only while you are already hurt — and it drops where the body fell. Ammunition works the same way: kills drop it, the between-wave restock is deliberately thin, and both of them mean the same thing, which is that holding one corner slowly starves you out of it.
+Health does not fully come back. Out of contact it regenerates to 70 and stops, 85 on EASY. Past that you need a medkit, which drops from brutes and conductors and occasionally from anything else, but only while you are already hurt, and it drops where the body fell. Ammunition works the same way: kills drop it, the between-wave restock is deliberately thin, and both of them mean the same thing, which is that holding one corner slowly starves you out of it.
 
 ### The score is the loss
 
@@ -130,13 +130,13 @@ Spheres are cheap, so the game can afford to test every live enemy for every pel
 ```js
 /* Broad phase must bound the whole body, not the feet. e.pos is ground
    level but hitboxes reach 2.36*scale above it, so a fixed radius of 3
-   rejected rays aimed at the head of anything tall — brutes past 5m and
+   rejected rays aimed at the head of anything tall: brutes past 5m and
    conductors past 2m were unhittable. Centre on mid-body, scale the radius. */
 ```
 
 The tall enemies had heads you could see and could not shoot. Nothing errored. Nothing logged. The game just felt unfair, which is the worst bug a game can have and the hardest one to find, because the person reporting it can only tell you that it isn't working.
 
-The same bug came back from the other direction the day crawlers were added. A bounding sphere centred 1.45 units up encloses an upright zombie and floats entirely above a prone one, so the fix was never a better constant — it was moving the constant onto the enemy. Broad-phase height, hit volumes and the touch aim-assist target are all per-type now. Left alone, three of those four would have failed silently, and the symptom would have been a crawler you could see and could not shoot.
+The same bug came back from the other direction the day crawlers were added. A bounding sphere centred 1.45 units up encloses an upright zombie and floats entirely above a prone one, so the fix was never a better constant; it was moving the constant onto the enemy. Broad-phase height, hit volumes and the touch aim-assist target are all per-type now. Left alone, three of those four would have failed silently, and the symptom would have been a crawler you could see and could not shoot.
 
 Touch gets a gentle aim assist on top of this, not a lock-on. If the shot direction falls within about seven degrees of an enemy's head, the direction lerps 55% of the way toward it. It makes a kid on a tablet lethal. It does not make misses impossible, and it never applies to desktop.
 
@@ -148,7 +148,7 @@ The first was a single condition. An enemy attacked only while `dist < reach`, a
 
 The second was that enemies were never solid. They were absent from the collision set, so a crowd of twenty was a crowd you could walk through. Being surrounded had no physical meaning. They push now, accumulated across the pack and capped so a pile-up shoves rather than teleports.
 
-The third is the smallest and the most instructive. `damagePlayer(amount, from)` had always taken the attacker's position, and had never once used it. The damage overlay was a symmetric red vignette, so a bite from behind and a bite from the front rendered identically. The information existed, arrived at the right function, and was thrown away — which is a different failure from not having it, and a harder one to notice, because the signature looks correct.
+The third is the smallest and the most instructive. `damagePlayer(amount, from)` had always taken the attacker's position, and had never once used it. The damage overlay was a symmetric red vignette, so a bite from behind and a bite from the front rendered identically. The information existed, arrived at the right function, and was thrown away, which is a different failure from not having it, and a harder one to notice, because the signature looks correct.
 
 Between them those three made an entire hemisphere of the game decorative. Fixing the third one is what made fixing the first two feel fair instead of cheap.
 
@@ -190,7 +190,7 @@ The entire visual and audio world is generated at runtime. Twenty-three canvas t
 
 Nothing is sent, either. The whole player profile is one `localStorage` object under `ashworthSave`: `{ ngP, badges, best }`, plus a one-character difficulty preference. No server, no accounts, no analytics, no way for the game to know anything about the player that the player's own browser does not already know. A kid should be able to play a browser game without it being a data relationship. Clearing site data clears the profile, and every storage call is wrapped in a try/catch because Safari private mode throws on write.
 
-The one thing that used to come off the network was Three.js itself. Not any more. The engine is vendored — `vendor/three.module.min.js` and `vendor/RoomEnvironment.js`, repointed in the import map — and a small service worker (`sw.js`) precaches the page and the engine on first visit. After that the game boots with no internet and an empty HTTP cache; Cache Storage is separate from, and far stickier than, the HTTP cache (Safari evicts it only after about seven days of never visiting). Registration is guarded, so a `file://` copy simply stays online-dependent. When the engine or the page changes, bump the `CACHE` string in `sw.js` — activation deletes the old cache, so a stale engine can never outlive its page.
+The one thing that used to come off the network was Three.js itself. Not any more. The engine is vendored (`vendor/three.module.min.js` and `vendor/RoomEnvironment.js`, repointed in the import map) and a small service worker (`sw.js`) precaches the page and the engine on first visit. After that the game boots with no internet and an empty HTTP cache; Cache Storage is separate from, and far stickier than, the HTTP cache (Safari evicts it only after about seven days of never visiting). Registration is guarded, so a `file://` copy simply stays online-dependent. When the engine or the page changes, bump the `CACHE` string in `sw.js`; activation deletes the old cache, so a stale engine can never outlive its page.
 
 ### What it throws away
 
@@ -271,11 +271,11 @@ On the player's side of the ledger: regeneration starts 10 seconds after the las
 
 The HTML file is the artifact. Serve it from any static host; there is nothing to build.
 
-**GitHub Pages.** Push `index.html`, `og-image.png`, `sw.js` and `vendor/` to the repository root. In Settings, under Pages, set the source to "Deploy from a branch" and pick your default branch with the `/ (root)` folder. The game is then live at the bare repository URL — `https://<user>.github.io/<repo>/` — which is how this copy is hosted. Keep `og-image.png` beside it, and point the `og:image` meta tag at the absolute URL it will live at: Open Graph consumers do not resolve relative paths, so a relative one shows a grey card instead of the station.
+**GitHub Pages.** Push `index.html`, `og-image.png`, `sw.js` and `vendor/` to the repository root. In Settings, under Pages, set the source to "Deploy from a branch" and pick your default branch with the `/ (root)` folder. The game is then live at the bare repository URL, `https://<user>.github.io/<repo>/`, which is how this copy is hosted. Keep `og-image.png` beside it, and point the `og:image` meta tag at the absolute URL it will live at: Open Graph consumers do not resolve relative paths, so a relative one shows a grey card instead of the station.
 
 **Anywhere else.** Copy all of it: `index.html`, `sw.js`, `vendor/`, `og-image.png`. There is nothing to build and nothing to fetch.
 
-**Offline.** Handled by the service worker. The first visit precaches the page and the vendored engine; every reload after that — including ones with no internet and an empty HTTP cache — boots from Cache Storage. The import map points at the vendored files, so there is no third-party request at any point. When you change the page or the engine, bump the `CACHE` string in `sw.js`; activation deletes the old cache so a stale engine can never outlive its page.
+**Offline.** Handled by the service worker. The first visit precaches the page and the vendored engine; every reload after that, including ones with no internet and an empty HTTP cache, boots from Cache Storage. The import map points at the vendored files, so there is no third-party request at any point. When you change the page or the engine, bump the `CACHE` string in `sw.js`; activation deletes the old cache so a stale engine can never outlive its page.
 
 ---
 
