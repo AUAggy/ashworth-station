@@ -264,10 +264,15 @@
 
 <script type="importmap">
 { "imports": {
-    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    "three": "./vendor/three.module.min.js",
+    "three/addons/environments/RoomEnvironment.js": "./vendor/RoomEnvironment.js"
 } }
 </script>
+<script>/* Offline: the service worker precaches the game + vendored engine, so a
+   reload with no internet and an empty HTTP cache still boots. The guard
+   keeps file:// and old browsers silent — they just fall back to online. */
+if('serviceWorker' in navigator){addEventListener('load',function(){
+  navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>
 
 <script type="module">
 import * as THREE from 'three';

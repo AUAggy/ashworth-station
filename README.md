@@ -17,7 +17,7 @@ python3 -m http.server 8000
 
 It needs a web server rather than a double-click because the page is an ES module that imports three.js by bare specifier. Opened straight off disk as `file://`, the module fetch runs from a null origin and browsers disagree about whether to allow it. Any static host works: GitHub Pages, S3, a USB stick behind nginx, `python3 -m http.server`.
 
-**The file:** 3,619 lines, ~157 KB, one `.html` document. One CDN dependency (three.js r170, two import-map entries). No images, no audio files, no fonts, no build step, no server. Needs WebGL; if the browser can't give it a context, the title screen says so instead of failing silently.
+**The file:** `index.html` — 3,670 lines, ~160 KB — plus the engine it imports, vendored under `vendor/` (~680 KB), and a 46-line service worker. No images, no audio files, no fonts, no build step, no server, and no network dependency at all: the engine is vendored, and the service worker precaches the lot, so the game boots with no internet and an empty browser cache. Needs WebGL; if the browser can't give it a context, the title screen says so instead of failing silently.
 
 The rest of this is how it got that way, and it is mostly a story about things that broke.
 
@@ -190,7 +190,7 @@ The entire visual and audio world is generated at runtime. Twenty-three canvas t
 
 Nothing is sent, either. The whole player profile is one `localStorage` object under `ashworthSave`: `{ ngP, badges, best }`, plus a one-character difficulty preference. No server, no accounts, no analytics, no way for the game to know anything about the player that the player's own browser does not already know. A kid should be able to play a browser game without it being a data relationship. Clearing site data clears the profile, and every storage call is wrapped in a try/catch because Safari private mode throws on write.
 
-The one thing that does come off the network is Three.js r170, through an import map with two entries: `three` for the core module and `three/addons/` for `RoomEnvironment`. For a fully offline copy, vendor both files and repoint both keys. Vendoring only the core module leaves the addon unresolved and nothing renders.
+The one thing that used to come off the network was Three.js itself. Not any more. The engine is vendored — `vendor/three.module.min.js` and `vendor/RoomEnvironment.js`, repointed in the import map — and a small service worker (`sw.js`) precaches the page and the engine on first visit. After that the game boots with no internet and an empty HTTP cache; Cache Storage is separate from, and far stickier than, the HTTP cache (Safari evicts it only after about seven days of never visiting). Registration is guarded, so a `file://` copy simply stays online-dependent. When the engine or the page changes, bump the `CACHE` string in `sw.js` — activation deletes the old cache, so a stale engine can never outlive its page.
 
 ### What it throws away
 
@@ -271,11 +271,11 @@ On the player's side of the ledger: regeneration starts 10 seconds after the las
 
 The HTML file is the artifact. Serve it from any static host; there is nothing to build.
 
-**GitHub Pages.** Push `index.html` and `og-image.png` to the repository root. In Settings, under Pages, set the source to "Deploy from a branch" and pick your default branch with the `/ (root)` folder. The game is then live at the bare repository URL — `https://<user>.github.io/<repo>/` — which is how this copy is hosted. Keep `og-image.png` beside it, and point the `og:image` meta tag at the absolute URL it will live at: Open Graph consumers do not resolve relative paths, so a relative one shows a grey card instead of the station.
+**GitHub Pages.** Push `index.html`, `og-image.png`, `sw.js` and `vendor/` to the repository root. In Settings, under Pages, set the source to "Deploy from a branch" and pick your default branch with the `/ (root)` folder. The game is then live at the bare repository URL — `https://<user>.github.io/<repo>/` — which is how this copy is hosted. Keep `og-image.png` beside it, and point the `og:image` meta tag at the absolute URL it will live at: Open Graph consumers do not resolve relative paths, so a relative one shows a grey card instead of the station.
 
-**Anywhere else.** Copy both files. The import map points at unpkg for Three.js; everything else is in the file.
+**Anywhere else.** Copy all of it: `index.html`, `sw.js`, `vendor/`, `og-image.png`. There is nothing to build and nothing to fetch.
 
-**Fully offline.** Vendor both `three.module.js` and `three/examples/jsm/environments/RoomEnvironment.js` next to the HTML and repoint both import-map keys. The addon imports the core module by bare specifier, so the `three` key has to resolve for it too.
+**Offline.** Handled by the service worker. The first visit precaches the page and the vendored engine; every reload after that — including ones with no internet and an empty HTTP cache — boots from Cache Storage. The import map points at the vendored files, so there is no third-party request at any point. When you change the page or the engine, bump the `CACHE` string in `sw.js`; activation deletes the old cache so a stale engine can never outlive its page.
 
 ---
 
@@ -291,7 +291,7 @@ Good first changes:
 - **Accessibility.** The difficulty chips, aim assist, and the TURN button exist because a child plays this game. Ideas in that spirit are welcome.
 - **A sixth badge.** The badge table, the earn order, and the save format all support it.
 
-Two hard rules. Pull requests that add a build step, a package manifest, a runtime dependency, or an external asset file will be closed; if a change needs an image or a sound, it needs to generate it instead. And every PR must be played before it is opened, on both EASY and HERO, and with both input modes, mouse and touch. Every bug in the table above was found by playing, not by reading. Yours will be too.
+Two hard rules. Pull requests that add a build step, a package manifest, a network dependency, or an external asset file will be closed; if a change needs an image or a sound, it needs to generate it instead. And every PR must be played before it is opened, on both EASY and HERO, and with both input modes, mouse and touch. Every bug in the table above was found by playing, not by reading. Yours will be too.
 
 ---
 
