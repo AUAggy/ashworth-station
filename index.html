@@ -1303,6 +1303,28 @@ function chamferBox(w,h,d,c){
     bevelThickness:c,bevelSize:c,bevelSegments:1,steps:1});
   g.translate(0,0,-dep/2);          // extrusion runs 0..dep, the bevel adds +-c
   const f=g.toNonIndexed();
+  /* BoxGeometry gave every face its own 0..1 UV square, so a texture painted for
+     one face of the box landed correctly on all six. ExtrudeGeometry's
+     generator does not: it emits raw vertex coordinates, which on these boxes
+     reads the texture's horizontal axis as the box's vertical one on the side
+     walls. The hi-vis vest came out as two vertical stripes down the flank
+     instead of two bands round the chest, and the carriage skin, the hanging
+     signs and the zombie skin were rotated the same way. Project the UVs back
+     out of the face normal, which is what a box means. */
+  {
+    const pos=f.attributes.position,nor=f.attributes.normal;
+    const uv=new Float32Array(pos.count*2);
+    for(let i=0;i<pos.count;i++){
+      const px=pos.getX(i),py=pos.getY(i),pz=pos.getZ(i);
+      const ax=Math.abs(nor.getX(i)),ay=Math.abs(nor.getY(i)),az=Math.abs(nor.getZ(i));
+      let u,v;
+      if(az>=ax&&az>=ay){u=(px+w/2)/w;v=(py+h/2)/h;}
+      else if(ax>=ay){u=(pz+d/2)/d;v=(py+h/2)/h;}
+      else{u=(px+w/2)/w;v=(pz+d/2)/d;}
+      uv[i*2]=u;uv[i*2+1]=v;
+    }
+    f.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  }
   f.computeVertexNormals();
   g.dispose();
   return f;
