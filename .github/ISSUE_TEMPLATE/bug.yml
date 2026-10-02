@@ -1,0 +1,58 @@
+name: Bug report
+description: The game broke or did something unexpected.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One bug per issue. Leave out personal details.
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: What the game did, and where in a run it did it.
+      placeholder: Wave 7, train doors opened, sound cut out.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+      description: What you expected instead.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      description: The hardware you played on.
+      placeholder: iPad 9th gen, Windows laptop, Pixel 8
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Name and version, if you know it.
+      placeholder: Safari 17, Chrome 128, Firefox 129
+    validations:
+      required: true
+  - type: dropdown
+    id: controls
+    attributes:
+      label: Controls
+      description: How you were playing.
+      options:
+        - Mouse and keyboard
+        - Touch screen
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors (optional)
+      description: Paste anything the browser console shows.
+    validations:
+      required: false

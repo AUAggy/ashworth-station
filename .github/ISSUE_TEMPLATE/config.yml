@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Play the game
+    url: https://auaggy.github.io/ashworth-station/
+    about: The current build, on GitHub Pages.

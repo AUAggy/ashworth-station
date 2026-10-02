@@ -712,7 +712,9 @@ try{
   document.getElementById('panel').innerHTML=
     '<div class="kicker">ASHWORTH ST</div><h1>NO WEBGL</h1><div class="rule"></div>'+
     '<p class="sub">This browser can\'t open a WebGL context, so the station can\'t be drawn. '+
-    'Try a different browser, or enable hardware acceleration and reload.</p>';
+    'Try a different browser, or enable hardware acceleration and reload. '+
+    'Still failing? Report it: '+
+    '<a href="https://github.com/AUAggy/ashworth-station/issues" style="color:#d9a441">github.com/AUAggy/ashworth-station/issues</a>.</p>';
 }
 /* 1.75 on a DPR-2 tablet is ~3M fragments before MSAA; 1.25 halves that and is
    indistinguishable at arm's length. The adaptive loop still tunes from here. */
