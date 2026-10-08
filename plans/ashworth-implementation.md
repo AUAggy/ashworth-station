@@ -46,7 +46,7 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | 17 | Procedural surface detail | desktop verified; device pending | Quieter concrete with directional wear, darker grout and periodic brushed steel; dimensions/resources and RNG call order preserved. Worker seed-1984 checks and matched snapshots pass; coordinator static 7/7 and focused resource/hit/pickup 9/9 pass. Adds only 128 canvas strokes at startup |
 | 18 | Contact/seam shading | desktop verified; device pending | Existing contact gradient gets a tighter dark core and bench opacity .30→.34; no extra decals/quads, enlarged shadows or shader features. Corpse fading and below-platform suppression untouched; same focused checks pass |
 | 19 | Documentation and proven dead code | in progress | `7559561` fixes regression-discovered finale roster budget while preserving bosses; exact recipes and EASY/HERO/NG+ scripted 15-wave runs pass; docs/vendor provenance still pending |
-| 20 | Selective silhouette/pose refinement | pending | Hit/muzzle bounds preserved |
+| 20 | Selective silhouette/pose refinement | desktop verified; device pending | Narrower shared torso/legs/hands, restrained type-specific upright stride/arm poses, tidier pistol serrations and SMG magazine; shotgun ribs corrected from double-offset world placement to pump-local coordinates. No added nodes/materials/triangles; head geometry, hit volumes and attachment vectors unchanged. Focused hit/ballistic/attachment/cleanup 9/9 pass; 24 matched budget captures pass. Subjective approval pending |
 
 ## Autonomous continuation
 

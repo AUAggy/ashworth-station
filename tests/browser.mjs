@@ -315,6 +315,23 @@ for(const type of enemyTypes)add(`broad-phase rays hit ${type} head/body centres
   for(const row of rows){assert.ok(row.hit,JSON.stringify(row));assert.equal(row.hit.type,type);assert.equal(row.hit.head,row.head,JSON.stringify(row));
     assert.ok(Math.abs(row.hit.t-row.expected)<1e-6,JSON.stringify(row));}
 });
+add('refined weapons preserve attachment markers and keep pump ribs on the pump', {}, async page=>{
+  const result=await evaluate(page,()=>{
+    const attachments=Object.fromEntries(Object.entries(__test.weapons).map(([name,w])=>[name,
+      {muzzle:w.built.muzzle.toArray(),eject:w.built.eject.toArray()}]));
+    const pump=__test.weapons.shotgun.built.pump;pump.geometry.computeBoundingBox();
+    const ribs=pump.children.map(r=>{r.geometry.computeBoundingBox();return {
+      min:r.geometry.boundingBox.min.toArray().map((v,i)=>v+r.position.toArray()[i]),
+      max:r.geometry.boundingBox.max.toArray().map((v,i)=>v+r.position.toArray()[i])};});
+    return {attachments,ribs,min:pump.geometry.boundingBox.min.toArray(),max:pump.geometry.boundingBox.max.toArray()};
+  });
+  assert.deepEqual(result.attachments,{pistol:{muzzle:[0,.012,-.36],eject:[.06,.03,.02]},
+    smg:{muzzle:[0,.005,-.84],eject:[.06,.02,-.02]},shotgun:{muzzle:[0,.03,-.94],eject:[.06,.02,.06]}});
+  assert.equal(result.ribs.length,5);
+  for(const rib of result.ribs)for(const axis of [1,2]){
+    assert.ok(rib.min[axis]>=result.min[axis]-1e-6);assert.ok(rib.max[axis]<=result.max[axis]+1e-6);
+  }
+});
 const released={aiming:false,firing:false,keys:false,lookDX:0,lookDY:0,fbX:0,fbY:0,
   touch:{joyId:-1,joyOn:false,joyX:0,joyZ:0,joyMag:0,lookId:-1,fire:false,jump:false}};
 for(const touch of [false,true])for(const event of ['blur','pagehide','hidden','resize','lost-lock'])for(const paused of (event==='lost-lock'?[false]:[false,true]))for(const ration of [0,3])

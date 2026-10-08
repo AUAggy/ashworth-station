@@ -2400,13 +2400,13 @@ function clearPickups(){pickups.forEach(p=>{fxRoot.remove(p.m);fxRoot.remove(p.h
 /* ================================================================ ENEMIES */
 const enemies=[];
 const EG={
-  torso:chamferBox(0.88,1.06,0.48,0.045),
+  torso:chamferBox(0.82,1.06,0.46,0.045),
   head :chamferBox(0.58,0.54,0.52,0.04),
   arm  :(()=>{const g=chamferBox(0.26,0.94,0.26,0.03);g.translate(0,-0.47,0);return g;})(),
-  leg  :(()=>{const g=chamferBox(0.31,1.02,0.33,0.035);g.translate(0,-0.51,0);return g;})(),
+  leg  :(()=>{const g=chamferBox(0.28,1.02,0.33,0.035);g.translate(0,-0.51,0);return g;})(),
   eye  :new THREE.BoxGeometry(0.12,0.07,0.04),
   jaw  :new THREE.BoxGeometry(0.34,0.12,0.1),
-  hand :chamferBox(0.28,0.2,0.28,0.03),
+  hand :chamferBox(0.26,0.2,0.26,0.03),
   hat  :new THREE.CylinderGeometry(0.17,0.19,0.14,10),
   brim :new THREE.CylinderGeometry(0.26,0.26,0.02,12)
 };
@@ -2741,8 +2741,9 @@ function updateEnemies(dt){
       }
       e.refs.head.rotation.z=sw*0.11;
     } else {
-    e.refs.legs[0].rotation.x=sw*0.72;
-    e.refs.legs[1].rotation.x=-sw*0.72;
+    const stride=e.type==='runner'?0.55:e.type==='brute'?0.32:0.42;
+    e.refs.legs[0].rotation.x=sw*stride;
+    e.refs.legs[1].rotation.x=-sw*stride;
     if(e.lunge>0){
       e.lunge=Math.max(0,e.lunge-dt*3.2);
       const l=Math.sin((1-e.lunge)*Math.PI);
@@ -2751,8 +2752,10 @@ function updateEnemies(dt){
       e.refs.torso.rotation.x=l*0.28;
       e.refs.head.rotation.x=l*0.3;
     } else {
-      e.refs.arms[0].rotation.x=-1.42+sw*0.16;
-      e.refs.arms[1].rotation.x=-1.42-sw*0.16;
+      const armRest=e.type==='runner'?-1.1:e.type==='brute'?-1.05:-1.42;
+      const armSwing=e.type==='runner'?0.30:e.type==='brute'?0.10:0.16;
+      e.refs.arms[0].rotation.x=armRest+sw*armSwing;
+      e.refs.arms[1].rotation.x=armRest-sw*armSwing;
       e.refs.arms[0].rotation.z=0.13+sw*0.06;
       e.refs.arms[1].rotation.z=-0.13+sw*0.06;
       e.refs.torso.rotation.x=0.09+Math.sin(e.phase*2)*0.03;
@@ -2818,7 +2821,7 @@ function buildPistol(){
   box(0.05,0.02,0.02,GUN_MID,0,0.075,0.12,g);
   box(0.012,0.012,0.012,SIGHT_G,0,0.082,-0.26,g);
   const slideCuts=new THREE.Group();
-  for(let i=0;i<5;i++)box(0.092,0.06,0.012,GUN_MID,0,0.012,0.06+i*0.028,slideCuts);
+  for(let i=0;i<5;i++)box(0.092,0.06,0.012,GUN_MID,0,0.012,0.02+i*0.027,slideCuts);
   g.add(slideCuts);
   return {g,muzzle:new THREE.Vector3(0,0.012,-0.36),eject:new THREE.Vector3(0.06,0.03,0.02)};
 }
@@ -2828,7 +2831,7 @@ function buildSMG(){
   box(0.08,0.09,0.28,GUN_DARK,0,0.005,-0.42,g);
   cyl(0.021,0.021,0.34,GUN_MID,0,0.005,-0.62,g);
   cyl(0.033,0.030,0.08,GUN_DARK,0,0.005,-0.79,g);
-  const mag=box(0.072,0.30,0.10,GUN_POLY,0,-0.20,-0.02,g);mag.rotation.x=0.12;
+  const mag=box(0.068,0.34,0.10,GUN_POLY,0,-0.22,-0.02,g);mag.rotation.x=0.18;
   const grip=box(0.078,0.22,0.10,GUN_POLY,0,-0.17,0.13,g);grip.rotation.x=-0.3;
   box(0.06,0.085,0.26,GUN_DARK,0,-0.01,0.29,g);
   box(0.09,0.15,0.06,GUN_POLY,0,-0.03,0.42,g);
@@ -2850,7 +2853,7 @@ function buildShotgun(){
   box(0.095,0.03,0.16,GUN_MID,0,0.062,0.02,g);
   const pump=box(0.088,0.085,0.24,GUN_WOOD,0,-0.018,-0.36,g);
   for(let i=0;i<5;i++)box(0.092,0.012,0.012,new THREE.MeshStandardMaterial(
-      {color:0x4d2c14,roughness:.7}),0,-0.018,-0.45+i*0.045,pump);
+      {color:0x4d2c14,roughness:.7}),0,0,-0.09+i*0.045,pump);
   const stock=box(0.078,0.13,0.42,GUN_WOOD,0,-0.075,0.33,g);stock.rotation.x=0.13;
   box(0.084,0.16,0.05,GUN_DARK,0,-0.135,0.55,g);
   box(0.02,0.05,0.02,GUN_MID,0,-0.085,0.03,g);
