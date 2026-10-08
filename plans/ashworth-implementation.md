@@ -29,13 +29,13 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 |---:|---|---|---|
 | 1 | Consume menu gestures | pending | |
 | 2 | Scope service-worker cache ownership | pending | Worker QA |
-| 3 | Enemy jaw resource ownership | pending | Coordinator |
+| 3 | Enemy jaw resource ownership | automated verified | Shared jaw geometry; owned material disposed by both cleanup paths; 8 rendered cycles/path plateau at 190 geometries, 34 textures, 20 programs |
 | 4 | Short-screen menu layout | pending | Worker UI |
 | 5 | Spawn safety | pending | Close stair route; verify remaining entrances |
 | 6 | Clean WebGL failure | pending | |
 | 7 | Frame-independent movement | pending | |
 | 8 | Safe interruption suspension | pending | Preserve tactical ration |
-| 9 | Regression/release checks | in progress | Worker QA; baseline first |
+| 9 | Regression/release checks | in progress | `9167862`: syntax/import map, cache isolation, deterministic browser/simulation/resource checks; baseline 14/28 browser checks passed, 14 confirmed failures; 4/7 static/SW passed |
 | 10 | Existing lighting/exposure/fog | pending | Matched views and frame times |
 | 11 | Close playable stairwell | pending | No terrain/height system needed |
 | 12 | Native menu buttons/touch instructions | pending | Worker UI |
@@ -56,7 +56,8 @@ Bounds: 12 hours from supervisor start, at most 24 continuation attempts, at lea
 
 ## Current checkpoint
 
-- Review is complete; application code is still at the baseline.
+- Worker QA baseline reproduced input, WebGL, layout, movement, reset, malformed save, disposal, and cache defects; also exposed EASY NG+ finale recipe/queue mismatch (31 entries, 29 spawns). Fix the recipe budget without dropping the conductor.
+- `7894b1e`: bounded supervisor and seven unit checks; running under caffeinate, 12-hour deadline, 15-minute retry cadence, at most 24 continuations. STOP file: `.git/ashworth-run/STOP`. Status/logs in `.git/ashworth-run/` (never tracked).
 - GitHub Pages is configured to deploy the root of `main`; GitHub authentication is available.
 - Next: test foundation and supervised continuation setup; launch isolated workers.
 

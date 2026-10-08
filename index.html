@@ -2405,6 +2405,7 @@ const EG={
   arm  :(()=>{const g=chamferBox(0.26,0.94,0.26,0.03);g.translate(0,-0.47,0);return g;})(),
   leg  :(()=>{const g=chamferBox(0.31,1.02,0.33,0.035);g.translate(0,-0.51,0);return g;})(),
   eye  :new THREE.BoxGeometry(0.12,0.07,0.04),
+  jaw  :new THREE.BoxGeometry(0.34,0.12,0.1),
   hand :chamferBox(0.28,0.2,0.28,0.03),
   hat  :new THREE.CylinderGeometry(0.17,0.19,0.14,10),
   brim :new THREE.CylinderGeometry(0.26,0.26,0.02,12)
@@ -2454,8 +2455,8 @@ function makeZombie(type){
   [-0.15,0.15].forEach(o=>{
     const e=new THREE.Mesh(EG.eye,eyeM);e.position.set(o,0.06,0.27);head.add(e);
   });
-  const jaw=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.12,0.1),
-    new THREE.MeshStandardMaterial({color:0x2a1210,roughness:.9}));
+  const jawM=new THREE.MeshStandardMaterial({color:0x2a1210,roughness:.9});
+  const jaw=new THREE.Mesh(EG.jaw,jawM);
   jaw.position.set(0,-0.16,0.24);head.add(jaw);
 
   const arms=[-1,1].map(s=>{
@@ -2484,7 +2485,7 @@ function makeZombie(type){
     const hat=new THREE.Mesh(EG.hat,hm);hat.position.set(0,2.62,-0.02);g.add(hat);
     const brim=new THREE.Mesh(EG.brim,hm);brim.position.set(0,2.55,0.06);g.add(brim);
   }
-  const mats=[skin,shirt,pants,eyeM];
+  const mats=[skin,shirt,pants,eyeM,jawM];
   return {g,torso,head,arms,legs,mats};
 }
 
