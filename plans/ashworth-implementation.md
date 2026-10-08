@@ -2,7 +2,7 @@
 
 Source: `docs/REVIEW-2026-10-08.md`, review IDs 1–20. Base: `c0fa96a`. Branch: `improvement/ashworth-review-20`.
 
-Run status: active
+Run status: complete
 
 ## Authority and constraints
 
@@ -60,7 +60,10 @@ Bounds: 12 hours from supervisor start, at most 24 continuation attempts, at lea
 - Accumulated acceptance: Chromium 134/134, desktop WebKit 134/134, static/cache 7/7, supervisor 8/8. Independent review found no blocking regression; its end-buffer collection finding is fixed and reproduced by a failing-before/passing-after test.
 - `/tmp/ashworth-render-final/` and `/tmp/ashworth-render-reference-repeat/`: final four-profile/24-scene comparisons preserve every measured resource/draw/quality budget. Raw timing varies substantially; native Mac diagnostics are not sustained phone/tablet certification.
 - Temporary provider limits were handled by bounded continuation without new credentials/subscriptions. Supervisor state/logs remain local in `.git/ashworth-run/`; STOP is `.git/ashworth-run/STOP`. Original remaining deadline/attempt bounds were preserved on restart.
-- `5269007` published successfully (Pages build 1270134223); live HTML/SW hashes match and Chromium runtime/offline checks passed. Live WebKit revealed an announcement layer intercepting actual fallback clicks, a gap in the earlier API-driven tests. CSS pointer-events fix and failing-before/passing-after regression are complete; both 134-case suites and final 24-scene budgets pass. Republish with cache v17 and verify both live engines before completion. Real-device and human checks remain pending.
+- Final application publication: `917d1203cb72f82fc89356bf9869c142b28727cb`, Pages build [1270184676](https://api.github.com/repos/AUAggy/ashworth-station/pages/builds/1270184676), status `built`, no build error, verified 2026-10-09 06:55 AEST. Both implementation branch and `main` were pushed without force.
+- Live HTML SHA matches `885764d88e8f80157af77959a458fa1fc485fa08940233b100d60ae2ddc745ab`; live SW SHA matches `c272f2326d3a07f0eadbe8ecd37de547b6326bc30864e8336f21e68b90af1d20`. Uninstrumented live Chromium/WebKit both pass boot, deliberate fire, gesture-safe deploy/resume, preference persistence, v17 worker scope, unrelated-cache preservation and fresh-query primed offline navigation. No production test hooks are present.
+- The first publication's native WebKit probe exposed a banner hit-testing gap; `c5218cd` fixed it and both expanded suites pass. Evidence: `/tmp/ashworth-live-results.json`, `/tmp/ashworth-live-smoke.log` and release-note artifacts. Metadata-only completion commits retain the verified application bytes.
+- Implementation, automated acceptance and application publication are complete. Stop bounded continuation; no further autonomous source changes are planned. Real-device and human checks below remain pending.
 
 ## Required final assessment
 
