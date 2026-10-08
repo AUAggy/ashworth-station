@@ -25,9 +25,12 @@ A focused rerun is available, for example:
 ```sh
 node tests/browser.mjs --only='GPU|recipes|movement'
 node tests/browser.mjs --only='real SW'
+node tests/browser.mjs --only='spawns|near train-door|elevated|end clamps|bullet end|dropped|broad-phase'
+node tests/browser.mjs --only='safe lifecycle|suspend API|automatic resume|normal tactical|suspension'
+node tests/browser.mjs --only='comfort'
 ```
 
-Each browser case gets a fresh context and seeded randomness. Simulation cases block service workers, intercept only the document response, and inject `window.__test` immediately before the **final** `requestAnimationFrame(frame);` call. A coordinator change that wraps initialization in `boot()` still permits injection within that function. The hook exposes the actual module functions and state; it does not reimplement the simulation. RAF callbacks are queued for controlled stepping. No repository application file is modified.
+Each browser case gets a fresh context and seeded randomness. Simulation cases block service workers, intercept only the document response, and inject `window.__test` immediately before the **final** `requestAnimationFrame(frame);` call. A coordinator change that wraps initialization in `boot()` still permits injection within that function. The hook exposes the actual module functions and state; it does not reimplement the simulation. RAF callbacks are queued for controlled stepping. `__test.advance(seconds)` starts from the application's own `last` timestamp and runs the real frame at 50 ms steps through the real dt clamp. These clock probes suppress only `renderer.render()` during stepping; movement, damage, timers, input and all other frame logic remain actual application code. For read-only coordinator comparisons, `ASHWORTH_SOURCE=/absolute/path` selects that directory's `index.html` for intercepted simulation pages. It does **not** change the server/assets or raw service-worker cases; use focused simulation runs when comparing an external source. This override needs no edit outside the assigned harness files. Lifecycle probes replace document visibility/focus/lock getters and dispatch browser events explicitly, so a headless runner's focus cannot accidentally make a test pass. Pointer-lock rejection returns a rejected `NotAllowedError` promise. These are synthetic event/state probes, not operating-system app-switch certification. No repository application file is modified.
 
 The real-service-worker cases use an unmodified page with service workers enabled. Unrelated/old caches are seeded **before** game navigation, so activation cannot race their creation. The server binds only to `127.0.0.1` on a random port and closes after the run. Correctness checks use locators, state predicates, or explicit simulation steps, not arbitrary sleeps. Updated menu buttons are selected by role, with existing HUD/menu IDs or exact baseline text as fallbacks.
 
@@ -44,6 +47,17 @@ The real-service-worker cases use an unmodified page with service workers enable
 - Recipe length/queue/type agreement across EASY/HERO, NG+ 0/1/5/100, and early/late/final waves. The actual director/train/spawn code is advanced through all 15 waves, with scripted clears checking the live cap and victory transition. This does **not** prove human survivability or balance.
 - Deliberate firing, keyboard weapon selection, timed reload, and ammo conservation; death/redeploy/title transitions.
 - Primed offline **query-navigation** reload with the real worker; old Ashworth cache deletion and unrelated cache preservation. Standard-library worker checks additionally cover poisoned unrelated cache entries, exact asset allowlisting, cross-origin requests, and non-GET requests.
+
+### Safety and comfort regressions
+
+- **Spawn distance:** each of the five enemy types gets 64 seeded iterations at every combination of player x **−6/+6** and z **−39/0/+39**, separately through `spawnFlank()` and open-train `spawnOne()` (**3,840 placements** total). The train's actual position and state are both placed at the platform. Diagnostics record minimum horizontal distance per observed entrance; every placement must be at least **7 metres** away. Coverage must include track bed, upright alcove/platform entrances, and train doors where applicable. Five independent forced-centre-door cases ensure a near-player train placement redirects to a safe flank and consumes exactly one queue entry. Another **960 seeded flank placements** reject elevated/out-of-bounds spawns, even in late waves.
+- **Geometry:** actual player collision updates must stay inside `Z_MIN+3..Z_MAX−3` after blocker or brute pushes; actual enemy updates must stay inside `Z_MIN+0.55..Z_MAX−0.55` after crowd/blocker steering. Centre and side lanes at both ends are probed. Actual world ray intersections, enemy ray intersections and `fire()` agree on end-wall occlusion, while actual player updates must not allow standing beyond those walls. Ammo and med drops from bed/platform/formerly elevated origins are checked at creation and after pickup updates; their halos must stay at platform height.
+- **Hit volumes:** all five types, every head/body sphere, facing 0/90/180 degrees, ranges **3/8/20 metres**, and outer-head rays at 90% of the head radius. The analytic expected intersection distance is compared with the actual broad-phase/narrow-phase result. Rays approach perpendicular to facing so a crawler's other prone volumes cannot obscure the intended sphere.
+- **Safe lifecycle:** 36 independent combinations of blur/pagehide/hidden/resize while playing/paused, plus lost lock during active play, ration **0/3**, and desktop/touch. Each must enter `suspended`, preserve the ration, and clear keys, fire, aim, look deltas, fallback mouse offsets and all held touch state. Four seconds of real synthetic frames must freeze HP, run/wave timers, train position and enemy positions/attack timers. Returning visible/focused and another four seconds must not restart combat. Separate cases check suspension's state guard and blocked automatic resume when hidden, unfocused or missing desktop lock. A tactical pause's **own** pointer-lock release must leave the timed pause intact; if the lock is still missing when its countdown expires, automatic resume must safely suspend.
+- **Deliberate recovery:** independent mouse/touch/keyboard RESUME and QUIT TO TITLE actions from suspension. Desktop resume explicitly exercises pointer-lock rejection and fallback steering, without firing a round or changing a spent ration. Normal tactical pause remains separate: touch/fallback must hold before three seconds, auto-resume after three seconds and spend exactly one ration, even if `pause()` is called twice.
+- **Comfort:** `prefs`/`ashworthPrefs`, default reduced motion, explicit overrides, malformed/incorrect types, accessible `MUTE SOUND` / `REDUCED EFFECTS` buttons and `aria-pressed`; menu/pause/suspension reachability; actual reload persistence; blocked storage at boot and on write. Native AudioContext construction and gain nodes are observed to check master-gain mute/unmute and single-context reuse. Reduced effects must remove camera bob/shake/visual recoil and weapon motion, reduce muzzle flash, disable grain/flicker/death and victory white flashes, retain enemy/directional damage cues, and preserve matched actual head/body damage, ammo and recoil calculations.
+
+Missing planned APIs are guarded at injection with `typeof` and reported as **PENDING parent feature/API** assertion failures. They do not break boot, skip cases, or count as passes. Every case fails on an uncaught `pageerror`, including errors delivered after a different assertion failed. The forced-WebGL case explicitly requires a handled fallback with **no** uncaught exception and **no** game frame.
 
 The harness is intentionally small: no test framework or page-object layer. A failed assertion within one case can prevent later assertions in that case; a failure does not establish that every subcheck failed. Separate cases continue running.
 
@@ -125,6 +139,49 @@ All five worker checks now pass: pre-cache/query navigation; old Ashworth cache 
 The remaining **13 expected baseline failures** are menu gestures, forced WebGL failure, 844×390 menu clipping, movement timing, restart transients, focus-loss aim/suspension, four unsafe-save cases (negative, wrong types, invalid best with valid progress, huge progression with an invalid best), both GPU disposal paths, and recipe/queue agreement. They still fail normally and block a green release result; no application fix is claimed here.
 
 Post-fix logs remain local at `/tmp/ashworth-qa-check-v3.log` and `/tmp/ashworth-qa-browser-v3.log`. Protected application/plan/review files were not edited.
+
+## Safety-regression interim evidence
+
+Application source remains at **782499a** in this worktree (the QA/SW foundation, before the parent's core safety/comfort integration). Node **v25.2.1**, Chrome **152.0.7977.75**, headless, externally cached Playwright. Only `tests/browser.mjs`, `tests/instrument.mjs` and this document changed. No performance capture ran alongside correctness checks.
+
+```text
+$ node tools/check.mjs
+7/7 passed; 0 failed (exit 0)
+
+$ node tests/browser.mjs
+27/116 passed; 89 failed (exit 1)
+```
+
+This is intentionally **not release-green**. Of 88 new cases, eight pass: all five broad-phase hit-volume cases, platform-level med drops, and both normal timed tactical-pause cases. The other 80 new cases fail against pre-integration behavior: ten seeded distance checks, five forced near-door fallbacks, elevated spawning, three clamp/push checks, end-wall/player agreement, elevated-origin ammo drops, all 36 safe-lifecycle cases, suspension API, three automatic-resume guards, tactical-pause lock-release/countdown safety, six explicit suspension UI actions, and twelve comfort cases. Missing suspension/comfort APIs are labelled pending failures. The nine existing failures are forced-WebGL fallback, movement timing, restart transients, focus-loss suspension, four unsafe-save variants and recipe/queue agreement.
+
+Selected deterministic reproductions:
+
+| Probe | Interim actual calculation |
+|---|---|
+| Walker flank, x −6 / z −39 | Seeded minimum **2.108 m**, below 7 m. One bed placement was `[−7.5201, −1.25, −40.5]`, just **2.136 m** away. Clamping the randomly chosen outward z to the station end collapsed the intended spacing. |
+| Walker train doors, player x −6 / z 0 | Actual platform-positioned train produced a door minimum of **1.191 m**; near-door points remained `state: exit`. Forced-centre-door checks fail for all five types. |
+| Removed-route probe | Late-wave walker spawned at y **2.85**, z **−45.1191**. Elevated spawns remain reachable in baseline logic. |
+| Player north push, x 0 | Blocker push ended at z **−40.18**; brute push at **−39.8864**. Required minimum is **−39**. |
+| Enemy north push, x 0 | Walker ended at z **−43.5498**, y **0.9888** instead of staying at/above **−41.45** at platform level. |
+| Formerly elevated ammo origin | Initial pickup y **3.01**, halo y **2.88**; the first pickup update snaps the mesh back down but leaves the halo elevated. Med drops already remain at platform level. |
+| Blur while playing, ration 0 | Remained `playing`; aim/look/fallback offsets survived. After exactly four synthetic seconds, HP **100 → 83.65**, run timer **0 → 4.0**. Returning focus still left combat active. |
+| Blur while tactically paused | Remained `paused` immediately, then auto-resumed unseen; run timer advanced **0 → 1.0** during the four-second probe. Safe suspension must not inherit the timed tactical-pause countdown. |
+
+Full logs remain outside the checkout at `/tmp/ashworth-safety-regressions.log`; focused reproduction logs are `/tmp/ashworth-safety-geometry.log` and `/tmp/ashworth-safety-focused.log`. Earlier logs preserve earlier probe versions; the full log and figures above describe the final checks. A failing first assertion does not mean every later assertion in that case independently failed. Re-run the same commands after the parent integrates fixes; do not relabel pending failures as passes.
+
+### Coordinator safety comparison
+
+After reading `/tmp/ashworth-core-note.md`, the final safety checks were also run against the **read-only current parent HTML**, without changing `index.html` or `tests/helpers.mjs` in this worktree:
+
+```sh
+ASHWORTH_SOURCE=/Users/aggy/Documents/other-projects/prod/ashworth-station \
+  node tests/browser.mjs --only='^(safe (flank|door|lifecycle)|near train-door|no elevated|player end|enemy end|bullet end|dropped|broad-phase|suspend API|automatic resume|tactical pause|normal tactical|suspension)'
+# 75/76 passed; 1 failed (exit 1)
+```
+
+All deterministic spawn, bounds, ray-hit, lifecycle, freezing, blocked-auto-resume and explicit recovery cases pass against that parent checkpoint. The one remaining interim failure is elevated-origin `dropAmmo()` positioning: it still creates the mesh at y **3.01** and its halo at **2.88** for input y **2.85**. The elevated route itself is removed and the no-elevated-spawn check passes, so this is a helper invariant failure, **not evidence that current enemies still spawn upstairs**. Comfort was not included in this comparison; the checkpoint note says those features are still being implemented. Do not attribute stale-worktree failures to the parent's fixed source.
+
+An initial comparison exposed an over-strict harness assertion: edge-lane enemy steering can legitimately descend toward the track bed. The final geometry check allows `BED..0` there and requires exactly platform level in the centre lane. The harness also distinguishes externally lost lock during play from the intentional lock release inside tactical pause. The latter has its own independent countdown-to-safe-suspension case. Comparison log: `/tmp/ashworth-safety-parent.log`.
 
 ## Release checklist
 
