@@ -879,7 +879,7 @@ const TEX={};
 /* glazed subway tile, 8 x 16 grid, with grout, sheen and running grime */
 function texTiles(){
   const W=512,H=512,c=cvs(W,H),x=c.getContext('2d');
-  x.fillStyle='#3f423c';x.fillRect(0,0,W,H);
+  x.fillStyle='#30332e';x.fillRect(0,0,W,H);
   const cols=8,rows=16,tw=W/cols,th=H/rows;
   for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
     const v=rand(-13,11), y0=rand(-6,2);
@@ -898,11 +898,11 @@ function texTiles(){
   for(let i=0;i<26;i++){
     const px=rand(0,W), w=rand(3,22), h=rand(60,H);
     const g=x.createLinearGradient(0,0,0,h);
-    g.addColorStop(0,'rgba(38,42,36,.30)');g.addColorStop(1,'rgba(38,42,36,0)');
+    g.addColorStop(0,'rgba(38,42,36,.22)');g.addColorStop(1,'rgba(38,42,36,0)');
     x.fillStyle=g;x.fillRect(px,rand(0,H*0.4),w,h);
   }
   for(let i=0;i<16;i++) splotch(x,rand(0,W),rand(0,H),rand(8,34),'#4c4a40',rand(.05,.16));
-  noiseOverlay(x,W,H,16);
+  noiseOverlay(x,W,H,10);
   return c;
 }
 function texMosaic(){
@@ -930,21 +930,22 @@ function texFloor(){
   const W=512,H=512,c=cvs(W,H),x=c.getContext('2d');
   x.fillStyle='#8b8d84';x.fillRect(0,0,W,H);
   for(let i=0;i<520;i++) splotch(x,rand(0,W),rand(0,H),rand(6,54),
-      Math.random()<.5?'#7e8079':'#989a90',rand(.05,.20));
-  x.strokeStyle='rgba(52,54,50,.65)';x.lineWidth=2.5;
+      Math.random()<.5?'#7e8079':'#989a90',rand(.03,.12));
+  x.strokeStyle='rgba(38,40,36,.78)';x.lineWidth=2.5;
   for(let i=0;i<=2;i++){
     x.beginPath();x.moveTo(i*W/2,0);x.lineTo(i*W/2,H);x.stroke();
     x.beginPath();x.moveTo(0,i*H/2);x.lineTo(W,i*H/2);x.stroke();
   }
-  x.strokeStyle='rgba(44,46,42,.5)';x.lineWidth=1.2;
+  x.strokeStyle='rgba(44,46,42,.24)';x.lineWidth=1;
   for(let i=0;i<10;i++){
     let px=rand(0,W),py=rand(0,H);x.beginPath();x.moveTo(px,py);
-    for(let k=0;k<9;k++){px+=rand(-26,26);py+=rand(-26,26);x.lineTo(px,py);}
+    // Reuse the same random draws as short, mostly parallel wear rather than cracks.
+    for(let k=0;k<9;k++){px+=rand(-26,26)*.65;py+=rand(-26,26)*.08;x.lineTo(px,py);}
     x.stroke();
   }
-  for(let i=0;i<70;i++) splotch(x,rand(0,W),rand(0,H),rand(2.5,6),'#2e302c',rand(.4,.85),7);
+  for(let i=0;i<70;i++) splotch(x,rand(0,W),rand(0,H),rand(2.5,6),'#2e302c',rand(.16,.38),7);
   for(let i=0;i<9;i++) splotch(x,rand(0,W),rand(0,H),rand(20,60),'#6d6f68',rand(.12,.3));
-  noiseOverlay(x,W,H,20);
+  noiseOverlay(x,W,H,12);
   return c;
 }
 function texCeiling(){
@@ -998,6 +999,12 @@ function texTactile(){
 function texSteel(){
   const W=128,H=256,c=cvs(W,H),x=c.getContext('2d');
   x.fillStyle='#1c1f21';x.fillRect(0,0,W,H);
+  // Fine vertical brushing, periodic at the texture edges and independent of gameplay RNG.
+  for(let i=0;i<W;i++){
+    const grain=Math.sin(i*TAU*37/W)*Math.sin(i*TAU*13/W);
+    x.fillStyle=grain>0?'rgba(174,183,188,'+(grain*.065)+')':'rgba(0,0,0,'+(-grain*.09)+')';
+    x.fillRect(i,0,1,H);
+  }
   x.globalAlpha=1;
   for(let j=0;j<16;j++){
     x.beginPath();x.arc(14,j*16+8,3.2,0,TAU);x.fillStyle='#2b2f31';x.fill();
@@ -1005,8 +1012,8 @@ function texSteel(){
     x.beginPath();x.arc(W-14,j*16+8,3.2,0,TAU);x.fillStyle='#2b2f31';x.fill();
     x.beginPath();x.arc(W-15,j*16+7,1.8,0,TAU);x.fillStyle='#3a3f42';x.fill();
   }
-  for(let i=0;i<26;i++) splotch(x,rand(0,W),rand(0,H),rand(3,12),'#4a3722',rand(.1,.45));
-  noiseOverlay(x,W,H,14);
+  for(let i=0;i<26;i++) splotch(x,rand(0,W),rand(0,H),rand(3,12),'#4a3722',rand(.06,.22));
+  noiseOverlay(x,W,H,4);
   return c;
 }
 function texPlinth(){
@@ -1180,8 +1187,9 @@ function texContact(){
   const S=128,c=cvs(S,S),x=c.getContext('2d');
   const g=x.createRadialGradient(S/2,S/2,0,S/2,S/2,S/2);
   g.addColorStop(0,'rgba(255,255,255,1)');
-  g.addColorStop(.40,'rgba(255,255,255,.62)');
-  g.addColorStop(.70,'rgba(255,255,255,.20)');
+  g.addColorStop(.22,'rgba(255,255,255,.92)');
+  g.addColorStop(.48,'rgba(255,255,255,.60)');
+  g.addColorStop(.74,'rgba(255,255,255,.16)');
   g.addColorStop(1,'rgba(255,255,255,0)');
   x.fillStyle=g;x.fillRect(0,0,S,S);
   return c;
@@ -1409,7 +1417,7 @@ const PG={
   ratTail    :new THREE.CylinderGeometry(0.012,0.004,0.28,4)
 };
 const PM={
-  benchShadow:new THREE.MeshBasicMaterial({map:TEX.contact,color:0,transparent:true,opacity:.3,depthWrite:false}),
+  benchShadow:new THREE.MeshBasicMaterial({map:TEX.contact,color:0,transparent:true,opacity:.34,depthWrite:false}),
   lampBulb   :new THREE.MeshBasicMaterial({color:0xffcf8a}),
   binBody    :new THREE.MeshStandardMaterial({color:0x1e2124,roughness:.7,metalness:.55,side:THREE.DoubleSide}),
   binBag     :new THREE.MeshStandardMaterial({color:0x0d0f10,roughness:.5}),
