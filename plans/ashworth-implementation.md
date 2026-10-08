@@ -31,13 +31,13 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | 2 | Scope service-worker cache ownership | automated verified | `d1fc1e9`; 7/7 syntax/import/cache checks and real primed-offline/unrelated-cache checks pass |
 | 3 | Enemy jaw resource ownership | automated verified | Shared jaw geometry; owned material disposed by both cleanup paths; 8 rendered cycles/path plateau at 190 geometries, 34 textures, 20 programs |
 | 4 | Short-screen menu layout | automated verified | `06d0398`; scrollable safe-area overlay, compact landscape, 2x2 end stats; four regression viewports and worker swipe evidence |
-| 5 | Spawn safety | pending | Close stair route; verify remaining entrances |
+| 5 | Spawn safety | automated verified | Stair route removed; near-end track offset reverses instead of clamping onto player; train doors reject near-player positions. 2,700 seeded entrance/type samples minimum 7.121 m (7 m contract) |
 | 6 | Clean WebGL failure | automated verified | Boot returns immediately after fallback panel; renderer failure has no uncaught exception, input setup, or RAF |
 | 7 | Frame-independent movement | automated verified | Exponential approach to configured 4.5 m/s target; walking 2s travel 8.681/8.647/8.629 at 30/60/120 Hz (<0.7% spread); sprint/aim/diagonal/stopping also pass. Actual speed is now the documented target, rather than legacy 60Hz 3.675 m/s; human balance pending |
 | 8 | Safe interruption suspension | pending | Preserve tactical ration |
 | 9 | Regression/release checks | in progress | `9167862`: syntax/import map, cache isolation, deterministic browser/simulation/resource checks; baseline 14/28 browser checks passed, 14 confirmed failures; 4/7 static/SW passed |
 | 10 | Existing lighting/exposure/fog | pending | Matched views and frame times |
-| 11 | Close playable stairwell | pending | No terrain/height system needed |
+| 11 | Close playable stairwell | automated verified | Both gates closed; removed upper flight, height field, elevated spawns and special-case bounds. Player ±39 / enemy ±41.45 m clamps; north bullet gate distance 2.90 m; director/resources smoke pass; human assessment pending |
 | 12 | Native menu buttons/touch instructions | automated verified | `06d0398`; keyboard-native actions, aria-pressed difficulty, focus styling/restoration, explicit pause quit; worker keyboard/touch checks |
 | 13 | Transient-state resets | pending | |
 | 14 | Save normalization | pending | Preserve best-score format |
