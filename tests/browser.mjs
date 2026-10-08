@@ -152,25 +152,86 @@ add('focus loss clears held aim/fire and safely suspends', {}, async page => {
   const state = await evaluate(page, () => { __test.startGame();__test.dirty();window.dispatchEvent(new Event('blur'));return __test.state; });
   assert.equal(state.aiming,false);assert.equal(state.firing,false);assert.notEqual(state.gameState,'playing');
 });
+const validBest={waves:3,kills:4,acc:50,score:100,time:60,ngP:1};
+const validBadges=[true,false,true,false,true];
+const validSave={ngP:2,badges:validBadges,best:validBest};
+const noBadges=[false,false,false,false,false];
 const saves = [
-  ['missing',undefined],['malformed','{bad json'],['old',{ngP:4,badges:[false],best:null}],
-  ['negative',{ngP:-5,badges:[true],best:{score:null}}],
+  ['missing',undefined],['malformed','{bad json'],['null',null],['primitive',7],['array',[]],['unknown',{version:99}],
+  ['old',{ngP:4,badges:[false],best:null},4],
+  ['negative',{ngP:-5,badges:[true],best:{score:null}},0,[true,false,false,false,false]],
   ['wrong types',{ngP:'7',badges:[1,'x'],best:{score:'bad',time:-1}}],
-  ['valid',{ngP:2,badges:[true,false,true,false,true],best:{waves:3,kills:4,acc:50,score:100,time:60,ngP:1}}],
-  ['invalid best/valid progress',{ngP:3,badges:[],best:{score:null}}],
-  ['huge progression',{ngP:1e300,badges:[],best:{score:-5}}]
+  ['valid',validSave,2,validBadges,validBest],
+  ['invalid best/valid progress',{ngP:3,badges:validBadges,best:{score:null}},3,validBadges],
+  ['missing badges',{ngP:2,best:validBest},2,noBadges,validBest],
+  ['wrong badges type',{ngP:2,badges:'true',best:validBest},2,noBadges,validBest],
+  ['boolean badges only',{ngP:2,badges:[true,'true',1,null,false,true]},2,[true,false,false,false,false]],
+  ['huge progression',{ngP:1e300,badges:[],best:{score:-5}}],
+  ['fractional progression',{...validSave,ngP:1.5},0,validBadges,validBest],
+  ['overflowing health',{...validSave,ngP:3000},0,validBadges,validBest],
+  ['nonfinite progression','{"ngP":1e400,"badges":[true]}',0,[true,false,false,false,false]]
 ];
-for (const [name,save] of saves) add(`saved progress: ${name}`, {save}, async page => {
+for (const [name,save,ngP=0,badge=noBadges,bestRun=null] of saves) add(`saved progress: ${name}`, {save}, async (page,context,errors) => {
   const state=await evaluate(page,()=>__test.state);
-  assert.ok(Number.isSafeInteger(state.ngP)&&state.ngP>=0,JSON.stringify(state));
-  assert.equal(state.badge.length,5);assert.ok(state.badge.every(b=>typeof b==='boolean'));
-  if(state.bestRun)for(const field of ['score','waves','kills','acc','time','ngP']) assert.ok(Number.isFinite(state.bestRun[field])&&state.bestRun[field]>=0, `${field}: ${JSON.stringify(state)}`);
-  if(save?.ngP===2){assert.equal(state.ngP,2);assert.equal(state.bestRun.score,100);}
-  if(save?.ngP===3)assert.equal(state.ngP,3,'bad best must not discard valid progress');
+  assert.deepEqual({ngP:state.ngP,badge:state.badge,bestRun:state.bestRun},{ngP,badge,bestRun});
   await evaluate(page,()=>{__test.startGame();__test.gameOver();});
+  if(bestRun){
+    assert.deepEqual(await evaluate(page,()=>__test.state.bestRun),bestRun,'weaker run must not replace best score');
+    assert.deepEqual(await evaluate(page,()=>JSON.parse(localStorage.getItem('ashworthSave'))),{ngP,badges:badge,best:bestRun});
+  }
+  assert.deepEqual(errors,[]);
 });
-add('storage-disabled play still boots and ends safely', {storageDisabled:true}, async page => {
+add('saved progress: reload resets fields and validates every best metric', {save:validSave}, async page => {
+  const result=await evaluate(page, ({validSave,noBadges}) => {
+    const failures=[];
+    const read=()=>{const {ngP,badge,bestRun}=__test.state;return {ngP,badge,bestRun};};
+    const load=save=>{localStorage.setItem('ashworthSave',typeof save==='string'?save:JSON.stringify(save));__test.loadSave();return read();};
+    for(const field of ['waves','kills','score','ngP','acc','time']) {
+      const invalid=field==='acc'?[-1,101,'50',null,true]:field==='time'?[-1,'60',null,true]:[-1,.5,Number.MAX_SAFE_INTEGER+1,'1',null,true];
+      for(const value of [...invalid,undefined]) {
+        load(validSave);
+        const state=load({...validSave,best:{...validSave.best,[field]:value}});
+        if(state.ngP!==2||JSON.stringify(state.badge)!==JSON.stringify(validSave.badges)||state.bestRun!==null)failures.push({field,value,state});
+      }
+      const state=load(JSON.stringify(validSave).replace(`"${field}":${validSave.best[field]}`,`"${field}":1e400`));
+      if(state.bestRun!==null)failures.push({field,value:'nonfinite',state});
+    }
+    for(const best of [true,100,'record',[],{}]) {
+      const state=load({...validSave,best});if(state.bestRun!==null)failures.push({best,state});
+    }
+    for(const save of ['{bad json','null','[]','true','{}']) {
+      load(validSave);const state=load(save);
+      if(state.ngP!==0||JSON.stringify(state.badge)!==JSON.stringify(noBadges)||state.bestRun!==null)failures.push({save,state});
+    }
+    load(validSave);localStorage.removeItem('ashworthSave');__test.loadSave();const missing=read();
+    load(validSave);Storage.prototype.getItem=()=>{throw new Error('storage disabled');};__test.loadSave();const disabled=read();
+    return {failures,missing,disabled};
+  },{validSave,noBadges});
+  assert.deepEqual(result.failures,[]);
+  for(const state of [result.missing,result.disabled])assert.deepEqual(state,{ngP:0,badge:noBadges,bestRun:null});
+});
+add('saved progress: health overflow boundary and valid best endpoints', {}, async page => {
+  const result=await evaluate(page, validSave => {
+    let limit=0;while(Number.isFinite(Math.pow(1.3,limit+1)*10000))limit++;
+    const rows=[];
+    for(const ngP of [limit,limit+1,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER+1]) {
+      localStorage.setItem('ashworthSave',JSON.stringify({...validSave,ngP}));__test.loadSave();rows.push({input:ngP,loaded:__test.state.ngP,best:__test.state.bestRun});
+    }
+    const bests=[];
+    for(const acc of [0,100]){
+      const best={waves:0,kills:0,score:Number.MAX_SAFE_INTEGER,ngP:Number.MAX_SAFE_INTEGER,acc,time:.5};
+      localStorage.setItem('ashworthSave',JSON.stringify({...validSave,best}));__test.loadSave();bests.push({best,loaded:__test.state.bestRun});
+    }
+    return {limit,rows,bests};
+  },validSave);
+  assert.ok(result.limit>100);
+  for(const row of result.rows){assert.equal(row.loaded,row.input===result.limit?result.limit:0);assert.deepEqual(row.best,validBest);}
+  for(const row of result.bests)assert.deepEqual(row.loaded,row.best);
+});
+add('storage-disabled play still boots and ends safely', {storageDisabled:true}, async (page,context,errors) => {
+  assert.deepEqual(await evaluate(page,()=>{const {ngP,badge,bestRun}=__test.state;return {ngP,badge,bestRun};}),{ngP:0,badge:noBadges,bestRun:null});
   await evaluate(page,()=>{__test.startGame();__test.gameOver();});
+  assert.deepEqual(errors,[]);
 });
 for(const path of ['clear','corpse']) add(`GPU disposal plateau after warm-up: ${path}`, {}, async page => {
   const counts = await evaluate(page, path => {
