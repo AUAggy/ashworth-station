@@ -2349,25 +2349,25 @@ const pickupHaloGeo=new THREE.PlaneGeometry(0.9,0.9);
    than floor clutter — and they drop where the body fell, so recovering health
    means leaving whatever corner you were holding. */
 function dropMed(pos){
-  const px=clamp(pos.x,-PLAT+0.9,PLAT-0.9);
+  const px=clamp(pos.x,-PLAT+0.9,PLAT-0.9),pz=clamp(pos.z,Z_MIN+3,Z_MAX-3);
   const m=new THREE.Mesh(medGeo,medMat);
-  m.position.set(px,0.2,pos.z);fxRoot.add(m);
+  m.position.set(px,0.2,pz);fxRoot.add(m);
   const halo=new THREE.Mesh(pickupHaloGeo,
     new THREE.MeshBasicMaterial({map:TEX.glow,transparent:true,opacity:.5,
       color:0xff6a5a,blending:THREE.AdditiveBlending,depthWrite:false}));
-  halo.rotation.x=-Math.PI/2;halo.position.set(px,0.03,pos.z);fxRoot.add(halo);
+  halo.rotation.x=-Math.PI/2;halo.position.set(px,0.03,pz);fxRoot.add(halo);
   pickups.push({m,halo,t:0,med:true});
 }
 function dropAmmo(pos){
-  const px=clamp(pos.x,-PLAT+0.9,PLAT-0.9);
+  const px=clamp(pos.x,-PLAT+0.9,PLAT-0.9),pz=clamp(pos.z,Z_MIN+3,Z_MAX-3);
   const m=new THREE.Mesh(pickupGeo,pickupMat);
-  m.position.set(px,0.16,pos.z);fxRoot.add(m);
+  m.position.set(px,0.16,pz);fxRoot.add(m);
   /* Geometry is shared; the material can't be, because updatePickups pulses
      each halo's opacity off its own timer. It is disposed on removal instead. */
   const halo=new THREE.Mesh(pickupHaloGeo,
     new THREE.MeshBasicMaterial({map:TEX.glow,transparent:true,opacity:.5,
       blending:THREE.AdditiveBlending,depthWrite:false}));
-  halo.rotation.x=-Math.PI/2;halo.position.set(px,0.03,pos.z);fxRoot.add(halo);
+  halo.rotation.x=-Math.PI/2;halo.position.set(px,0.03,pz);fxRoot.add(halo);
   pickups.push({m,halo,t:0});
 }
 function updatePickups(dt){

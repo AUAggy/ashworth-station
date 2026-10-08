@@ -299,6 +299,26 @@ for(const drop of ['ammo','med'])add(`dropped ${drop} stays platform-level, incl
     assert.ok(row.initial[1]>=.15&&row.initial[1]<=.21,JSON.stringify(row));assert.equal(row.halo[1],.03);
     assert.ok(row.updated[1]>=.135&&row.updated[1]<=.225,JSON.stringify(row));}
 });
+add('end-buffer kills leave both supply drops reachable and collectable', {}, async page=>{
+  const rows=await evaluate(page,()=>{
+    const rows=[];
+    for(const sign of [-1,1]){
+      __test.startGame();__test.player.pos.set(0,1.68,sign*39);__test.player.hp=25;
+      for(const w of Object.values(__test.weapons))w.reserve=0;
+      const e=__test.spawnZombie('brute',0,0,sign*41.45,{});
+      __test.dropAmmo(e.pos);__test.dropMed(e.pos);
+      const positions=__test.pickups.map(p=>({z:p.m.position.z,haloZ:p.halo.position.z}));
+      __test.updatePickups(.01);
+      rows.push({sign,positions,left:__test.pickups.length,hp:__test.player.hp,reserve:__test.weapons.pistol.reserve});
+    }
+    __test.clearEnemies();return rows;
+  });
+  for(const row of rows){
+    assert.equal(row.positions.length,2);
+    for(const p of row.positions){assert.equal(p.z,row.sign*39);assert.equal(p.haloZ,p.z);}
+    assert.equal(row.left,0);assert.equal(row.hp,60);assert.ok(row.reserve>0);
+  }
+});
 for(const type of enemyTypes)add(`broad-phase rays hit ${type} head/body centres and outer head at range`, {}, async page=>{
   const rows=await evaluate(page,type=>{
     __test.startGame();__test.clearEnemies();const e=__test.spawnZombie(type,0,0,0,{}),rows=[];

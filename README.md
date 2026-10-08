@@ -95,7 +95,7 @@ Crawlers do not stand up. They drag along the platform at ankle height, which pu
 
 Everything that reaches you telegraphs. A zombie in range winds up for between 0.18 and 0.34 seconds before the damage lands, and the hit only registers if you are still there when it does. Brutes and conductors wind up longest and hit hardest. Backing out of a swing is a real option. Standing still is not, because they close inside their own reach now and push you where they want you, and when something hits you from behind an arrow tells you which way to turn.
 
-Health does not fully come back. Out of contact it regenerates to 70 and stops, 85 on EASY. Past that you need a medkit, which drops from brutes and conductors and occasionally from anything else, but only while you are already hurt, and it drops where the body fell. Ammunition works the same way: kills drop it, the between-wave restock is deliberately thin, and both of them mean the same thing, which is that holding one corner slowly starves you out of it.
+Health does not fully come back. Out of contact it regenerates to 70 and stops, 85 on EASY. Past that you need a medkit, which drops from brutes and conductors and occasionally from anything else, but only while you are already hurt, and it drops on the reachable platform near the body. Ammunition works the same way: kills drop it, the between-wave restock is deliberately thin, and both of them mean the same thing, which is that holding one corner slowly starves you out of it.
 
 ### The record is the score
 
