@@ -252,16 +252,28 @@ for(const path of ['clear','corpse']) add(`GPU disposal plateau after warm-up: $
 add('recipes match wave queue for EASY/HERO and NG+ levels', {}, async page => {
   const recipes=await evaluate(page, () => {
     const rows=[];
-    for(const casual of [true,false])for(const ngP of [0,1,5,100])for(const waveNum of [0,2,4,13,14]) {
+    for(const casual of [true,false])for(const ngP of [0,1,2,3,5,100])for(const waveNum of [0,2,4,13,14]) {
       __test.startGame();__test.setup({casual,ngP,waveNum});__test.startWave();
-      rows.push({casual,ngP,wave:__test.state.waveNum,queue:__test.wave.queue,length:__test.wave.composition.length,valid:__test.wave.composition.every(t=>['walker','runner','crawler','brute','conductor'].includes(t))});
+      const counts={walker:0,runner:0,crawler:0,brute:0,conductor:0};
+      for(const type of __test.wave.composition)counts[type]++;
+      rows.push({casual,ngP,wave:__test.state.waveNum,queue:__test.wave.queue,length:__test.wave.composition.length,counts,valid:__test.wave.composition.every(t=>['walker','runner','crawler','brute','conductor'].includes(t))});
     }return rows;
   });
-  for(const row of recipes){assert.ok(row.valid);assert.equal(row.length,row.queue,JSON.stringify(row));}
+  for(const row of recipes){
+    assert.ok(row.valid);assert.equal(row.length,row.queue,JSON.stringify(row));
+    if(row.wave===15){
+      assert.equal(row.queue,row.casual?29:36);
+      const brute=Math.min(12,6+row.ngP*2),conductor=Math.min(3,1+row.ngP),crawler=9;
+      const runner=Math.min(12,row.queue-brute-conductor-crawler);
+      assert.deepEqual(row.counts,{brute,conductor,crawler,runner,walker:row.queue-brute-conductor-crawler-runner},JSON.stringify(row));
+      if(!row.casual&&row.ngP===0)assert.deepEqual(row.counts,{walker:8,runner:12,crawler:9,brute:6,conductor:1},'HERO NG0 finale must stay unchanged');
+      if(row.casual&&row.ngP===1)assert.deepEqual(row.counts,{walker:0,runner:10,crawler:9,brute:8,conductor:2},'EASY NG+1 must retain its bosses and crawler pressure');
+    }
+  }
 });
-add('scripted director reaches wave 15 victory and respects live cap', {}, async page => {
-  const result=await evaluate(page, () => {
-    __test.startGame();__test.setup({casual:true,ngP:0});let max=0,steps=0;const waves=[];
+for(const [label,casual,ngP] of [['EASY NG0',true,0],['EASY NG+1',true,1],['HERO NG0',false,0]])add(`scripted director reaches wave 15 victory and respects live cap: ${label}`, {}, async page => {
+  const result=await evaluate(page, ({casual,ngP}) => {
+    __test.startGame();__test.setup({casual,ngP});let max=0,steps=0;const waves=[];
     while(__test.state.gameState==='playing'&&steps++<40000) {
       __test.updateTrain(1/30);__test.updateWaves(1/30);
       const alive=__test.enemies.filter(e=>!e.dead).length;max=Math.max(max,alive);
@@ -271,8 +283,8 @@ add('scripted director reaches wave 15 victory and respects live cap', {}, async
       if(__test.wave.state==='fighting'||alive>=Math.min(30,12+Math.round(__test.state.waveNum*1.6)))__test.clearEnemies();
     }
     return {state:__test.state.gameState,waves,max,ngP:__test.state.ngP};
-  });
-  assert.equal(result.state,'won');assert.deepEqual(result.waves,Array.from({length:15},(_,i)=>i+1));assert.equal(result.ngP,1);assert.ok(result.max<=30);
+  },{casual,ngP});
+  assert.equal(result.state,'won');assert.deepEqual(result.waves,Array.from({length:15},(_,i)=>i+1));assert.equal(result.ngP,ngP+1);assert.ok(result.max<=30);
 });
 add('normal weapon switch, deliberate shot and timed reload conserve ammo', {}, async page => {
   await evaluate(page, () => __test.startGame());
