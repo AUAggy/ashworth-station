@@ -2338,15 +2338,14 @@ function dropMed(pos){
 }
 function dropAmmo(pos){
   const px=clamp(pos.x,-PLAT+0.9,PLAT-0.9);
-  const py=pos.y>0?pos.y:0;
   const m=new THREE.Mesh(pickupGeo,pickupMat);
-  m.position.set(px,py+0.16,pos.z);fxRoot.add(m);
+  m.position.set(px,0.16,pos.z);fxRoot.add(m);
   /* Geometry is shared; the material can't be, because updatePickups pulses
      each halo's opacity off its own timer. It is disposed on removal instead. */
   const halo=new THREE.Mesh(pickupHaloGeo,
     new THREE.MeshBasicMaterial({map:TEX.glow,transparent:true,opacity:.5,
       blending:THREE.AdditiveBlending,depthWrite:false}));
-  halo.rotation.x=-Math.PI/2;halo.position.set(px,py+0.03,pos.z);fxRoot.add(halo);
+  halo.rotation.x=-Math.PI/2;halo.position.set(px,0.03,pos.z);fxRoot.add(halo);
   pickups.push({m,halo,t:0});
 }
 function updatePickups(dt){
@@ -3892,7 +3891,7 @@ function startGame(){
   MOVE_SPD=4.5*(badge[4]?1.1:1);
   for(const k in weapons){
     const w=weapons[k];w.ammo=w.def.mag;w.reserve=w.def.reserve;w.reloading=0;w.cool=0;
-    w.pumping=w.bloom=w.kickZ=w.kickR=w.raise=w.flashTimer=0;w.flashMat.opacity=0;
+    w.pumping=w.bloom=w.kickZ=w.kickR=w.raise=w.flashTimer=w.reloadMax=0;w.flashMat.opacity=0;
     if(w.built.pump)w.built.pump.position.z=-0.36;
     w.holder.position.copy(w.def.pos);w.holder.rotation.set(0,0,0);
     w.holder.visible=(k==='pistol');
