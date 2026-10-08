@@ -33,7 +33,7 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | 4 | Short-screen menu layout | automated verified | `06d0398`; scrollable safe-area overlay, compact landscape, 2x2 end stats; four regression viewports and worker swipe evidence |
 | 5 | Spawn safety | pending | Close stair route; verify remaining entrances |
 | 6 | Clean WebGL failure | automated verified | Boot returns immediately after fallback panel; renderer failure has no uncaught exception, input setup, or RAF |
-| 7 | Frame-independent movement | pending | |
+| 7 | Frame-independent movement | automated verified | Exponential approach to configured 4.5 m/s target; walking 2s travel 8.681/8.647/8.629 at 30/60/120 Hz (<0.7% spread); sprint/aim/diagonal/stopping also pass. Actual speed is now the documented target, rather than legacy 60Hz 3.675 m/s; human balance pending |
 | 8 | Safe interruption suspension | pending | Preserve tactical ration |
 | 9 | Regression/release checks | in progress | `9167862`: syntax/import map, cache isolation, deterministic browser/simulation/resource checks; baseline 14/28 browser checks passed, 14 confirmed failures; 4/7 static/SW passed |
 | 10 | Existing lighting/exposure/fog | pending | Matched views and frame times |

@@ -3274,12 +3274,13 @@ function updatePlayer(dt){
     const sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);
     const wx=fx*cy+fz*sy, wz=-fx*sy+fz*cy;
     const target=MOVE_SPD*(sprinting?SPRINT:1)*(aiming?0.55:1)*analog;
-    player.vel.x+=wx*ACCEL*dt;player.vel.z+=wz*ACCEL*dt;
-    const sp=Math.hypot(player.vel.x,player.vel.z);
-    if(sp>target){player.vel.x*=target/sp;player.vel.z*=target/sp;}
+    const a=1-Math.exp(-ACCEL/target*dt);
+    player.vel.x=lerp(player.vel.x,wx*target,a);
+    player.vel.z=lerp(player.vel.z,wz*target,a);
+  } else {
+    const f=Math.exp(-FRICTION*dt);
+    player.vel.x*=f;player.vel.z*=f;
   }
-  const f=Math.max(0,1-FRICTION*dt);
-  player.vel.x*=f;player.vel.z*=f;
 
   player.pos.x+=player.vel.x*dt;
   player.pos.z+=player.vel.z*dt;
