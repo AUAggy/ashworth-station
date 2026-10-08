@@ -41,7 +41,7 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | 12 | Native menu buttons/touch instructions | automated verified | `06d0398`; keyboard-native actions, aria-pressed difficulty, focus styling/restoration, explicit pause quit; worker keyboard/touch checks |
 | 13 | Transient-state resets | automated verified | Full restart clears input, velocity/jump, recoil, bob, weapon pump/bloom/kick/flash/raise, pooled effects and decals; explicit baseline camera/weapon pose; accumulated 42/42 checks pass |
 | 14 | Save normalization | automated verified | `7f4094f`; valid profiles preserved, five strict boolean badges, safe/finite fields, invalid best independent of valid progression; 20 malformed/boundary/reload cases plus storage-disabled play pass |
-| 15 | Reflective material tuning | pending | No new shader features |
+| 15 | Reflective material tuning | desktop verified; device pending | Existing uniform parameters separate metal, matte polymer/wood, painted train panels, glass and wet patches. 24 captures retain all resource/draw/quality budgets; focused boot/ballistic/cleanup checks 4/4 pass. Tablet median +20% in this variable headless pass requires matched repeat, not a performance claim |
 | 16 | Mute and reduced effects | automated verified | Local strict-boolean preferences; OS reduced-motion default with explicit override; native controls on title/pause/suspension; master gain mute and single-context unmute; cosmetic bob/shake/roll/sway/flash/flicker/grain reduced while pitch/yaw aiming recoil and damage cues remain. All preference/ballistic checks pass; real iOS/audio pending |
 | 17 | Procedural surface detail | pending | Same texture dimensions |
 | 18 | Contact/seam shading | pending | Existing resources only |
@@ -60,7 +60,7 @@ Bounds: 12 hours from supervisor start, at most 24 continuation attempts, at lea
 - `7894b1e`: bounded supervisor and seven unit checks; running under caffeinate, 12-hour deadline, 15-minute retry cadence, at most 24 continuations. STOP file: `.git/ashworth-run/STOP`. Status/logs in `.git/ashworth-run/` (never tracked).
 - GitHub Pages is configured to deploy the root of `main`; GitHub authentication is available.
 - Core completed: 130/130 accumulated browser checks and 7/7 syntax/import/cache checks pass at `ee07718`; 8/8 supervisor unit checks pass. No deployment yet.
-- Rendering baseline: `/tmp/ashworth-render-before/` (core HTML `ee07718`, actual HTML hash in render.json), four fixed-quality profiles and 24 scenes. Software/headless timing is not device certification. Lighting comparison in `/tmp/ashworth-render-lighting/` retains every measured resource/draw/quality budget.
+- Rendering baseline: `/tmp/ashworth-render-before/` (core HTML `ee07718`, actual HTML hash in render.json), four fixed-quality profiles and 24 scenes. Native ANGLE/Metal on Apple M1 Max, headless Chromium 152; viewport emulation is not phone/tablet GPU or thermal certification. Lighting comparison in `/tmp/ashworth-render-lighting/` retains every measured resource/draw/quality budget.
 - Provider Subscription Sharing allowance was exhausted. Supervisor performed 11 bounded 15-minute retries and resumed this saved session after access returned. Temporarily paused to add pending-request deduplication; preserve its original deadline/remaining attempt budget when restarting.
 - Next: reflective materials and selective silhouettes; integrate procedural/contact and documentation workers; serial rendering comparison and full release checks, then publish.
 

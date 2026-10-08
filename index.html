@@ -1315,11 +1315,11 @@ TEX.graffiti=mkTex(texGraffiti(),1,1);
 
 /* =============================================================== MATERIALS */
 const MAT={
-  steel:addNormal(new THREE.MeshStandardMaterial({map:TEX.steel,color:0x6c7075,roughness:.62,metalness:.72}),0.35),
-  darkSteel:new THREE.MeshStandardMaterial({color:0x14171a,roughness:.55,metalness:.8}),
+  steel:addNormal(new THREE.MeshStandardMaterial({map:TEX.steel,color:0x7a8086,roughness:.58,metalness:.72}),0.35),
+  darkSteel:new THREE.MeshStandardMaterial({color:0x191d21,roughness:.65,metalness:.6}),
   plinth:addNormal(new THREE.MeshStandardMaterial({map:TEX.plinth,roughness:.94,metalness:0}),0.5),
   concrete:new THREE.MeshStandardMaterial({color:0x8f918a,roughness:.96,metalness:0}),
-  rail:new THREE.MeshStandardMaterial({color:0x9aa0a4,roughness:.28,metalness:.95}),
+  rail:new THREE.MeshStandardMaterial({color:0x9aa0a4,roughness:.22,metalness:.95}),
   tie:new THREE.MeshStandardMaterial({color:0x241d16,roughness:.98,metalness:0}),
   bulb:new THREE.MeshBasicMaterial({color:0xf4f7ff}),
   wood:new THREE.MeshStandardMaterial({color:0xa9793f,roughness:.72,metalness:.02}),
@@ -1872,8 +1872,8 @@ hangSign(-8,-3.2);hangSign(20,3.2);hangSign(-30,2.6);
 /* puddles: low-roughness patches that catch the strip lights */
 for(let i=0;i<14;i++){
   const p=new THREE.Mesh(new THREE.CircleGeometry(1,18),
-    new THREE.MeshStandardMaterial({color:0x1a1e22,roughness:.08,metalness:.45,
-      transparent:true,opacity:.62,depthWrite:false}));
+    new THREE.MeshStandardMaterial({color:0x161b20,roughness:.07,metalness:.2,
+      transparent:true,opacity:.52,depthWrite:false}));
   p.rotation.x=-Math.PI/2;
   p.position.set(rand(-5.4,5.4),0.017,rand(Z_MIN+2,Z_MAX-2));
   const s2=rand(0.65,1.35);
@@ -1983,9 +1983,9 @@ world.add(train);
 const trainDoors=[];      // {L,R,z,base}
 const CAR_LEN=17, CARS=3;
 
-const matBody=addNormal(new THREE.MeshStandardMaterial({map:TEX.trainSkin,color:0xd9dde1,roughness:.36,metalness:.72}),0.3);
-const matStripe=new THREE.MeshStandardMaterial({color:0x1f8a4c,roughness:.4,metalness:.3});
-const matWin=new THREE.MeshStandardMaterial({map:TEX.window,color:0x9fb0bb,roughness:.12,metalness:.6,
+const matBody=addNormal(new THREE.MeshStandardMaterial({map:TEX.trainSkin,color:0xd9dde1,roughness:.47,metalness:.55}),0.3);
+const matStripe=new THREE.MeshStandardMaterial({color:0x1f8a4c,roughness:.58,metalness:.08});
+const matWin=new THREE.MeshStandardMaterial({map:TEX.window,color:0x9fb0bb,roughness:.10,metalness:.15,
   transparent:true,opacity:.72});
 const matDoor=new THREE.MeshStandardMaterial({color:0xc6cace,roughness:.34,metalness:.68});
 const matInner=new THREE.MeshStandardMaterial({color:0x2a3138,roughness:.85,side:THREE.DoubleSide});
@@ -2769,10 +2769,10 @@ function clearEnemies(){
   enemies.length=0;
 }
 /* ================================================================ WEAPONS */
-const GUN_DARK=new THREE.MeshStandardMaterial({color:0x1a1d20,roughness:.42,metalness:.85});
-const GUN_MID =new THREE.MeshStandardMaterial({color:0x2c3136,roughness:.55,metalness:.7});
-const GUN_POLY=new THREE.MeshStandardMaterial({color:0x14161a,roughness:.75,metalness:.15});
-const GUN_WOOD=new THREE.MeshStandardMaterial({color:0x6b3f1e,roughness:.62,metalness:.05});
+const GUN_DARK=new THREE.MeshStandardMaterial({color:0x2b3138,roughness:.46,metalness:.65});
+const GUN_MID =new THREE.MeshStandardMaterial({color:0x414a53,roughness:.5,metalness:.6});
+const GUN_POLY=new THREE.MeshStandardMaterial({color:0x171a1e,roughness:.88,metalness:.02});
+const GUN_WOOD=new THREE.MeshStandardMaterial({color:0x6b3f1e,roughness:.68,metalness:0});
 const GUN_BRASS=new THREE.MeshStandardMaterial({color:0xc9a227,roughness:.3,metalness:.9});
 const SIGHT_G=new THREE.MeshBasicMaterial({color:0x7dff9b});
 
