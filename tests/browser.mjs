@@ -8,16 +8,18 @@ import { serve, root, runCases } from './helpers.mjs';
 import { instrument, browserInit } from './instrument.mjs';
 
 if (!process.env.ASHWORTH_PLAYWRIGHT) throw new Error('Set ASHWORTH_PLAYWRIGHT to an externally installed playwright/index.mjs (see docs/TESTING.md).');
-const { chromium } = await import(pathToFileURL(process.env.ASHWORTH_PLAYWRIGHT).href);
+const browserName=process.env.ASHWORTH_BROWSER||'chromium';
+assert.ok(['chromium','webkit'].includes(browserName),'ASHWORTH_BROWSER must be chromium or webkit');
+const engine=(await import(pathToFileURL(process.env.ASHWORTH_PLAYWRIGHT).href))[browserName];
 let browser;
-try { browser = await chromium.launch({ headless: true, ...(process.env.ASHWORTH_CHROME ? { executablePath: process.env.ASHWORTH_CHROME } : {}) }); }
+try { browser = await engine.launch({ headless: true, ...(browserName==='chromium'&&process.env.ASHWORTH_CHROME ? { executablePath: process.env.ASHWORTH_CHROME } : {}) }); }
 catch (error) {
-  if (process.env.ASHWORTH_CHROME || !error.message.includes("Executable doesn't exist")) throw error;
-  browser = await chromium.launch({ headless: true, executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' });
+  if (browserName!=='chromium'||process.env.ASHWORTH_CHROME || !error.message.includes("Executable doesn't exist")) throw error;
+  browser = await engine.launch({ headless: true, executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' });
 }
 const server = await serve();
-// Optional coordinator source is read-only; assets/server/raw SW cases stay in this checkout.
-const html = await readFile(join(process.env.ASHWORTH_SOURCE || root, 'index.html'), 'utf8');
+// The optional read-only fixture root supplies both document and served assets.
+const html = await readFile(join(root, 'index.html'), 'utf8');
 const sizes = [[844,390],[390,844],[1024,768],[1280,720]];
 const cases = [];
 const add = (name, options, fn) => cases.push([name, async () => {

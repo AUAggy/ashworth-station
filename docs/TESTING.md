@@ -22,7 +22,16 @@ export ASHWORTH_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Ch
 node tests/browser.mjs
 ```
 
-Without `ASHWORTH_CHROME`, the runner tries bundled Chromium, then that Chrome path if the bundle is missing. On other operating systems, set `ASHWORTH_CHROME` to a locally installed Chromium-compatible executable, or install Playwright's browser externally. The portable module path is `$HOME/.cache/ashworth-qa/node_modules/playwright/index.mjs`. Do not add a package manifest, `node_modules`, browser binaries or a build step to this checkout.
+The runner defaults to Chromium. Without `ASHWORTH_CHROME`, it tries bundled Chromium, then that Chrome path if the bundle is missing. On other operating systems, set `ASHWORTH_CHROME` to a locally installed Chromium-compatible executable, or install Playwright's browser externally. The portable module path is `$HOME/.cache/ashworth-qa/node_modules/playwright/index.mjs`. Do not add a package manifest, `node_modules`, browser binaries or a build step to this checkout.
+
+WebKit engine checks are optional and use the same externally installed package:
+
+```sh
+node "$QA_CACHE/node_modules/playwright/cli.js" install webkit
+ASHWORTH_BROWSER=webkit node tests/browser.mjs
+```
+
+`ASHWORTH_CHROME` is ignored for WebKit. This is a desktop test engine with touch emulation, not actual iPhone/iPad Safari or its audio/OS behavior. The fixed-quality render runner remains Chromium-only so matched comparisons use the same engine.
 
 A focused rerun is available, for example:
 
