@@ -380,6 +380,7 @@ const SFX=(function(){
     // sparse distant metal clanks — the station breathing
     const clang=()=>{
       if(!ctx)return;
+      if(ctx.state!=='running'){setTimeout(clang,15000);return;}
       const t=ctx.currentTime;
       const n=src(rand(1.8,3.2));
       const bp=ctx.createBiquadFilter();bp.type='bandpass';
@@ -433,6 +434,7 @@ const SFX=(function(){
 
   const api={
     init,resume,setRumble,
+    suspend(){if(ctx){const p=ctx.suspend();if(p&&p.catch)p.catch(()=>{});}},
     get ok(){return !!ctx;},
     state(){return ctx?ctx.state:'none';},
 
@@ -3495,6 +3497,22 @@ function updateWaves(dt){
 /* ================================================================== INPUT */
 let pointerLocked=false,fallbackLook=false,fbX=0,fbY=0;
 const SENS=0.0022;
+function clearHeldInput(){
+  for(const k in keys)keys[k]=false;
+  firing=false;aiming=false;fbX=fbY=lookDX=lookDY=0;
+  player.vel.set(0,0,0);
+  releaseTouchInput();
+}
+function requestLook(){
+  if(touchMode||pointerLocked)return;
+  if(fallbackLook||!canvasEl.requestPointerLock){fallbackLook=true;return;}
+  const fallback=()=>{if(gameState==='playing')fallbackLook=true;};
+  try{
+    const p=canvasEl.requestPointerLock();
+    if(p&&p.catch)p.catch(fallback);
+  }catch(e){fallback();}
+  setTimeout(()=>{if(!pointerLocked)fallback();},380);
+}
 
 document.addEventListener('mousemove',e=>{
   if(pointerLocked&&gameState==='playing'){
@@ -3508,16 +3526,10 @@ document.addEventListener('mousemove',e=>{
 });
 document.addEventListener('pointerlockchange',()=>{
   pointerLocked=(document.pointerLockElement===canvasEl);
-  if(!pointerLocked&&gameState==='playing'&&!fallbackLook)pause();
+  if(!pointerLocked&&gameState==='playing'&&!fallbackLook)suspend();
 });
-/* A lost lock with the ration spent — alt-tab, or an ESC the browser ate — used
-   to be the second, quieter door to the same wall. The view stays live instead,
-   and the next click on it takes the mouse back. */
 canvasEl.addEventListener('pointerdown',()=>{
-  if(gameState==='playing'&&!pointerLocked&&!fallbackLook&&!touchMode&&canvasEl.requestPointerLock){
-    const p=canvasEl.requestPointerLock();
-    if(p&&p.catch)p.catch(()=>{});
-  }
+  if(gameState==='playing')requestLook();
 });
 canvasEl.addEventListener('mousedown',e=>{
   if(gameState!=='playing'||touchMode||e.sourceCapabilities?.firesTouchEvents)return;
@@ -3550,7 +3562,10 @@ window.addEventListener('keydown',e=>{
   if(k==='escape')pause();
 });
 window.addEventListener('keyup',e=>{keys[keyOf(e)]=false;});
-window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;firing=false;});
+window.addEventListener('blur',suspend);
+window.addEventListener('pagehide',suspend);
+window.addEventListener('resize',suspend);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)suspend();});
 
 /* =========================================================== TOUCH INPUT */
 /* Primary-pointer test, not a capability test. `ontouchstart`/maxTouchPoints are
@@ -3632,11 +3647,12 @@ window.addEventListener('pointermove',e=>{
   el.addEventListener('pointerdown',e=>{
     e.preventDefault();e.stopPropagation();lastTouchT=Date.now();
     if(el.setPointerCapture)try{el.setPointerCapture(e.pointerId);}catch(_){}
+    if(gameState!=='playing')return;
     touch.fire=true;fire();
     lookId=e.pointerId;lx=e.clientX;ly=e.clientY;
   });
   el.addEventListener('pointermove',e=>{
-    if(e.pointerId!==lookId)return;
+    if(gameState!=='playing'||!touch.fire||e.pointerId!==lookId)return;
     const dx=e.clientX-lx, dy=e.clientY-ly;
     lx=e.clientX;ly=e.clientY;
     if(Math.abs(dx)+Math.abs(dy)<2)return;
@@ -3757,7 +3773,7 @@ function pause(){
     return;
   }
   pausesLeft--;
-  gameState='paused';firing=false;aiming=false;releaseTouchInput();
+  gameState='paused';clearHeldInput();
   elScreens.classList.remove('hide');
   setPanel('<div class="kicker">ASHWORTH ST</div><h1>PAUSED</h1><div class="rule"></div>'+
     '<p class="sub">The platform is holding. Take a breath.</p>'+
@@ -3768,15 +3784,26 @@ function pause(){
   if(document.exitPointerLock)document.exitPointerLock();
   pauseT=PAUSE_HOLD;pauseShown=PAUSE_HOLD;
 }
-function resume(){
-  gameState='playing';elScreens.classList.add('hide');elHud.classList.add('on');
-  if(!touchMode&&!fallbackLook&&canvasEl.requestPointerLock){
-    const p=canvasEl.requestPointerLock();
-    /* The auto-resume path fires from the frame loop with no gesture behind it,
-       so a browser mid-cooldown can reject the request. That is fine — the run
-       keeps going and the next click on the view takes the lock back. */
-    if(p&&p.catch)p.catch(()=>{});
+function suspend(){
+  clearHeldInput();
+  if(gameState!=='playing'&&gameState!=='paused')return;
+  gameState='suspended';SFX.suspend();
+  elScreens.classList.remove('hide');
+  setPanel('<div class="kicker">ASHWORTH ST</div><h1>RUN HELD</h1><div class="rule"></div>'+
+    '<p class="sub">Your controls were interrupted. The station is waiting.</p>'+
+    '<div class="note">NO TACTICAL PAUSE SPENT</div>'+
+    '<button type="button" class="cta" id="cta">RESUME</button>'+
+    '<button type="button" class="quitline" id="quitBtn">QUIT TO TITLE</button>');
+  if(document.exitPointerLock)document.exitPointerLock();
+}
+function resume(fromGesture=false){
+  if(gameState!=='paused'&&gameState!=='suspended')return;
+  if(document.hidden||!document.hasFocus()||(!fromGesture&&!touchMode&&!fallbackLook&&!pointerLocked)){
+    suspend();return;
   }
+  clearHeldInput();last=performance.now();fpsAcc=0;fpsN=0;
+  gameState='playing';elScreens.classList.add('hide');elHud.classList.add('on');
+  if(fromGesture)requestLook();
 }
 /* One place to record a finished run. Guarded, so a weaker run can no longer
    overwrite the best — the old code reassigned bestRun unconditionally and then
@@ -3789,7 +3816,7 @@ function recordRun(){
     bestRun={waves:waveNum,kills:stats.kills,acc,score,time:runT,ngP:ngP};
 }
 function victory(){
-  gameState='won';firing=false;aiming=false;releaseTouchInput();
+  gameState='won';clearHeldInput();
   const acc=stats.shots?Math.round(stats.hits/stats.shots*100):0;
   const firstBadge=BADGES.findIndex((b,i)=>!badge[i]);
   let badgeTxt='';
@@ -3820,7 +3847,7 @@ function victory(){
   if(document.exitPointerLock)document.exitPointerLock();
 }
 function gameOver(){
-  gameState='over';firing=false;aiming=false;releaseTouchInput();
+  gameState='over';clearHeldInput();
   SFX.gameOver();
   elFlash.style.opacity=0.55;setTimeout(()=>elFlash.style.opacity=0,120);
   const acc=stats.shots?Math.round(stats.hits/stats.shots*100):0;
@@ -3841,27 +3868,39 @@ function gameOver(){
   if(document.exitPointerLock)document.exitPointerLock();
 }
 function quitToTitle(){
-  gameState='menu';firing=false;aiming=false;releaseTouchInput();
+  gameState='menu';clearHeldInput();
   setPanel(MENU_HTML);elScreens.classList.remove('hide');
   setPrestigeLine();syncDiff();   // MENU_HTML hardcodes EASY as selected
   elHud.classList.remove('on');
   if(document.exitPointerLock)document.exitPointerLock();
 }
 function startGame(){
-  clearEnemies();clearPickups();releaseTouchInput();
-  player.pos.set(0,EYE,30);player.vel.set(0,0,0);player.hp=100;player.y=0;player.vy=0;
+  clearEnemies();clearPickups();clearHeldInput();
+  player.pos.set(0,EYE,30);player.hp=100;player.y=0;player.vy=0;player.onGround=true;
   player.yaw=0;player.pitch=0;player.lastHurt=99;player.shake=0;
-  waveNum=0;score=0;runT=0;stats.kills=0;stats.shots=0;stats.hits=0;
+  player.bob=player.bobAmt=player.stepT=0;
+  recoilP=recoilY=recoilVP=recoilVY=0;
+  camera.position.copy(player.pos);camera.rotation.set(0,0,0);camera.fov=74;camera.updateProjectionMatrix();
+  for(const group of [tracers,parts,smokes,shells])for(const p of group){p.live=false;p.m.visible=false;}
+  for(const d of decals){fxRoot.remove(d);d.geometry.dispose();}decals.length=0;
+  muzzleLight.intensity=0;poolTimer=0;SFX.setRumble(0);
+  hmT=hsT=0;elHM.style.opacity=0;elHS.classList.remove('on');elFlash.style.opacity=0;elDmg.style.opacity=0;
+  dmgArrowT.fill(0);dmgArrows.forEach(a=>a.style.opacity=0);
+  pauseT=0;pauseShown=-1;expressT=rand(9,16);
+  waveNum=waveKills=waveShots=waveHits=0;score=0;runT=0;stats.kills=0;stats.shots=0;stats.hits=0;
   pausesLeft=PAUSES_PER_WAVE;   // the redeploy intermission belongs to no wave yet
   MOVE_SPD=4.5*(badge[4]?1.1:1);
   for(const k in weapons){
     const w=weapons[k];w.ammo=w.def.mag;w.reserve=w.def.reserve;w.reloading=0;w.cool=0;
+    w.pumping=w.bloom=w.kickZ=w.kickR=w.raise=w.flashTimer=0;w.flashMat.opacity=0;
+    if(w.built.pump)w.built.pump.position.z=-0.36;
+    w.holder.position.copy(w.def.pos);w.holder.rotation.set(0,0,0);
     w.holder.visible=(k==='pistol');
   }
   curWeapon='pistol';
   trainState.mode='away';trainState.z=-120;trainState.doorOpen=0;train.visible=false;
   express.state='idle';express.g.visible=false;express.light.intensity=0;
-  wave.state='intermission';wave.t=4.5;wave.queue=0;
+  wave.state='intermission';wave.t=4.5;wave.queue=0;wave.composition.length=0;
   hudAmmo();hudHP();hudKills();topWave('STAND BY');
   gameState='playing';
   elScreens.classList.add('hide');elHud.classList.add('on');
@@ -3876,35 +3915,23 @@ elScreens.addEventListener('click',e=>{
   if(webglFailed)return;
   const button=e.target.closest?.('button');
   if(!button||!elScreens.contains(button))return;
-  if(button.id==='quitBtn'&&['paused','over','won'].includes(gameState)){quitToTitle();return;}
+  if(button.id==='quitBtn'&&['paused','suspended','over','won'].includes(gameState)){quitToTitle();return;}
   if(gameState==='menu'&&button.id==='dCasual'){unlockAudio();setDiff(true);return;}
   if(gameState==='menu'&&button.id==='dSurv'){unlockAudio();setDiff(false);return;}
   if(button.id!=='cta')return;
-  if(!['menu','paused','over','won'].includes(gameState))return;
+  if(!['menu','paused','suspended','over','won'].includes(gameState))return;
   unlockAudio();
-  if(gameState==='paused'){resume();return;}
-  if(touchMode){startGame();return;}
-  if(!fallbackLook&&canvasEl.requestPointerLock){
-    const p=canvasEl.requestPointerLock();
-    if(p&&p.catch)p.catch(()=>{});   // a blocked frame rejects; the 380ms check below is what actually falls back
-    setTimeout(()=>{
-      if(!pointerLocked){
-        fallbackLook=true;
-        const n=document.querySelector('#note');
-        if(n)n.textContent='Mouse lock is blocked here. Steering with mouse position instead. Open the file in its own tab for full mouse look.';
-      }
-    },380);
-  } else fallbackLook=true;
-  startGame();
+  if(gameState==='paused'||gameState==='suspended'){resume(true);return;}
+  startGame();requestLook();
 });
 
 /* ================================================================== LOOP */
 let last=performance.now(),fpsAcc=0,fpsN=0;
 function frame(now){
   requestAnimationFrame(frame);
-  let dt=(now-last)/1000;last=now;
-  if(!(dt>0))dt=0.016;
-  dt=Math.min(dt,0.05);
+  const frameDt=(now-last)/1000;last=now;
+  const dt=frameDt>0?Math.min(frameDt,0.05):0.016;
+  if(gameState==='suspended'){renderer.render(scene,camera);return;}
 
   if(gameState==='playing'){
     updatePlayer(dt);
@@ -3938,7 +3965,7 @@ function frame(now){
   updateLightPool(dt,camera.position);
   updatePoolGlow(dt);
 
-  fpsAcc+=dt;fpsN++;
+  fpsAcc+=Math.max(0,frameDt);fpsN++;
   if(fpsAcc>2){
     const fps=fpsN/fpsAcc;fpsAcc=0;fpsN=0;
     if(fps<44&&curPR>0.7){curPR=Math.max(0.7,curPR-0.25);renderer.setPixelRatio(curPR);}

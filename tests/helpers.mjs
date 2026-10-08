@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const root = fileURLToPath(new URL('../', import.meta.url));
+export const root = process.env.ASHWORTH_SOURCE ? resolve(process.env.ASHWORTH_SOURCE) + sep : fileURLToPath(new URL('../', import.meta.url));
 export async function serve() {
   const server = createServer(async (req, res) => {
     const path = resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname));

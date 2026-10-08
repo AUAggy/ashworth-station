@@ -34,18 +34,18 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | 5 | Spawn safety | automated verified | Stair route removed; near-end track offset reverses instead of clamping onto player; train doors reject near-player positions. 2,700 seeded entrance/type samples minimum 7.121 m (7 m contract) |
 | 6 | Clean WebGL failure | automated verified | Boot returns immediately after fallback panel; renderer failure has no uncaught exception, input setup, or RAF |
 | 7 | Frame-independent movement | automated verified | Exponential approach to configured 4.5 m/s target; walking 2s travel 8.681/8.647/8.629 at 30/60/120 Hz (<0.7% spread); sprint/aim/diagonal/stopping also pass. Actual speed is now the documented target, rather than legacy 60Hz 3.675 m/s; human balance pending |
-| 8 | Safe interruption suspension | pending | Preserve tactical ration |
+| 8 | Safe interruption suspension | in progress | Suspension separate from tactical pause; blur/hidden/pagehide/resize/lock-loss clear controls and freeze simulation; safe gesture resume; extended worker checks pending |
 | 9 | Regression/release checks | in progress | `9167862`: syntax/import map, cache isolation, deterministic browser/simulation/resource checks; baseline 14/28 browser checks passed, 14 confirmed failures; 4/7 static/SW passed |
 | 10 | Existing lighting/exposure/fog | pending | Matched views and frame times |
 | 11 | Close playable stairwell | automated verified | Both gates closed; removed upper flight, height field, elevated spawns and special-case bounds. Player ±39 / enemy ±41.45 m clamps; north bullet gate distance 2.90 m; director/resources smoke pass; human assessment pending |
 | 12 | Native menu buttons/touch instructions | automated verified | `06d0398`; keyboard-native actions, aria-pressed difficulty, focus styling/restoration, explicit pause quit; worker keyboard/touch checks |
-| 13 | Transient-state resets | pending | |
-| 14 | Save normalization | pending | Preserve best-score format |
+| 13 | Transient-state resets | automated verified | Full restart clears input, velocity/jump, recoil, bob, weapon pump/bloom/kick/flash/raise, pooled effects and decals; explicit baseline camera/weapon pose; accumulated 42/42 checks pass |
+| 14 | Save normalization | automated verified | `7f4094f`; valid profiles preserved, five strict boolean badges, safe/finite fields, invalid best independent of valid progression; 20 malformed/boundary/reload cases plus storage-disabled play pass |
 | 15 | Reflective material tuning | pending | No new shader features |
 | 16 | Mute and reduced effects | pending | Local preferences |
 | 17 | Procedural surface detail | pending | Same texture dimensions |
 | 18 | Contact/seam shading | pending | Existing resources only |
-| 19 | Documentation and proven dead code | pending | Include vendor provenance |
+| 19 | Documentation and proven dead code | in progress | `7559561` fixes regression-discovered finale roster budget while preserving bosses; exact recipes and EASY/HERO/NG+ scripted 15-wave runs pass; docs/vendor provenance still pending |
 | 20 | Selective silhouette/pose refinement | pending | Hit/muzzle bounds preserved |
 
 ## Autonomous continuation
@@ -59,7 +59,8 @@ Bounds: 12 hours from supervisor start, at most 24 continuation attempts, at lea
 - Worker QA baseline reproduced input, WebGL, layout, movement, reset, malformed save, disposal, and cache defects; also exposed EASY NG+ finale recipe/queue mismatch (31 entries, 29 spawns). Fix the recipe budget without dropping the conductor.
 - `7894b1e`: bounded supervisor and seven unit checks; running under caffeinate, 12-hour deadline, 15-minute retry cadence, at most 24 continuations. STOP file: `.git/ashworth-run/STOP`. Status/logs in `.git/ashworth-run/` (never tracked).
 - GitHub Pages is configured to deploy the root of `main`; GitHub authentication is available.
-- Next: test foundation and supervised continuation setup; launch isolated workers.
+- Current accumulated suite: 7/7 syntax/import/cache checks; 42/42 browser checks; 7/7 supervisor unit checks. No deployment yet.
+- Next: integrate extended safety tests, implement comfort controls, then capture a post-functional/pre-graphics baseline and make bounded graphics passes.
 
 ## Required final assessment
 
