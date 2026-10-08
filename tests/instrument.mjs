@@ -26,7 +26,7 @@ export function instrument(html) {
   return html.slice(0, at) + hooks + html.slice(at);
 }
 
-export function browserInit({ seed = 1984, webglFail = false, save } = {}) {
+export function browserInit({ seed = 1984, webglFail = false, save, storageDisabled = false } = {}) {
   // Actual RAF is available only for optional real-time performance captures.
   window.__nativeRAF = window.requestAnimationFrame.bind(window);
   let callbacks = new Map(), next = 0;
@@ -47,4 +47,5 @@ export function browserInit({ seed = 1984, webglFail = false, save } = {}) {
     };
   }
   if (save !== undefined) localStorage.setItem('ashworthSave', typeof save === 'string' ? save : JSON.stringify(save));
+  if (storageDisabled) Storage.prototype.getItem = Storage.prototype.setItem = () => { throw new Error('storage disabled'); };
 }

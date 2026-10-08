@@ -90,7 +90,8 @@ add('forced WebGL failure: fallback, no exception, no frame', { webglFail:true }
   // Load has completed module execution; this task barrier lets pageerror delivery settle.
   await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0)));
   assert.deepEqual(errors, []);
-  assert.equal(await page.evaluate(() => window.__frameCount), 0);
+  // Drain RAF once: a scheduled game loop must not hide behind our controlled clock.
+  assert.equal(await page.evaluate(() => {__step(performance.now()+16);return window.__frameCount;}), 0);
 });
 for (const [width,height] of sizes) add(`seeded touch menus fit ${width}x${height}`, { viewport:{width,height}, touch:true }, async page => {
   async function checkMenu(actions) {
@@ -168,11 +169,8 @@ for (const [name,save] of saves) add(`saved progress: ${name}`, {save}, async pa
   if(save?.ngP===3)assert.equal(state.ngP,3,'bad best must not discard valid progress');
   await evaluate(page,()=>{__test.startGame();__test.gameOver();});
 });
-add('storage-disabled play still boots and ends safely', {}, async page => {
-  await evaluate(page,()=>{
-    Storage.prototype.getItem=Storage.prototype.setItem=()=>{throw new Error('storage disabled');};
-    __test.loadSave();__test.startGame();__test.gameOver();
-  });
+add('storage-disabled play still boots and ends safely', {storageDisabled:true}, async page => {
+  await evaluate(page,()=>{__test.startGame();__test.gameOver();});
 });
 for(const path of ['clear','corpse']) add(`GPU disposal plateau after warm-up: ${path}`, {}, async page => {
   const counts = await evaluate(page, path => {
@@ -272,5 +270,7 @@ if(process.argv.includes('--capture')) add('capture seeded scene and raw pre-cla
 });
 const only = process.argv.find(arg=>arg.startsWith('--only='))?.slice(7);
 const selected = only ? cases.filter(([name])=>new RegExp(only,'i').test(name)) : cases;
-if(!selected.length)throw new Error(`No cases matched ${only}`);
-try { await runCases(selected); } finally { await browser.close();await server.close(); }
+try {
+  assert.ok(selected.length,`No cases matched ${only}`);
+  await runCases(selected);
+} finally { await browser.close();await server.close(); }
