@@ -10,7 +10,7 @@ A browser-based zombie survival FPS I made for my seven-year-old, with his ideas
 
 What began as an AI experiment became an evenings-and-weekends project with my son. We'd play, talk about what felt wrong, and decide what to change. The crawlers, wave count, graffiti, pause and TURN button were his ideas.
 
-I come from systems architecture, not software development. AI agents wrote all the code. I set the gameplay and the constraints: one HTML file for the game, phones and tablets first, and controls my son could use. I also expected it to keep working when a player switched apps or restarted a run.
+I am not a trained software developer. My background is in systems architecture and security. AI agents wrote all the code. I set the gameplay and the constraints: one HTML file for the game, phones and tablets first, and controls my son could use. I also expected it to keep working when a player switched apps or restarted a run.
 
 My son and his friends tested it by playing. They reported bugs and asked for changes. I took their feedback to the agents, then tested the changes with the children. I decided what to keep and what to leave out.
 

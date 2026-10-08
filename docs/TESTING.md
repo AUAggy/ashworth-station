@@ -4,7 +4,6 @@ Run from the repository root. These tools are for development; the game needs no
 
 ```sh
 node tools/check.mjs
-python3 -m unittest discover -s tests -p test_supervisor.py
 ```
 
 For browser checks, install Playwright outside the checkout:
