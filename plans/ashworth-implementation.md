@@ -36,7 +36,7 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | 7 | Frame-independent movement | automated verified | Exponential approach to configured 4.5 m/s target; walking 2s travel 8.681/8.647/8.629 at 30/60/120 Hz (<0.7% spread); sprint/aim/diagonal/stopping also pass. Actual speed is now the documented target, rather than legacy 60Hz 3.675 m/s; human balance pending |
 | 8 | Safe interruption suspension | automated verified | `dc9c47d`, `6c5df2c`; blur/hidden/pagehide/resize/lock loss across mouse/touch, playing/paused, zero/full rations freeze simulation; touch/fallback tactical pause resumes at 3s; missing desktop lock safely holds; explicit mouse/touch/keyboard resume/quit pass |
 | 9 | Regression/release checks | in progress | `9167862`: syntax/import map, cache isolation, deterministic browser/simulation/resource checks; baseline 14/28 browser checks passed, 14 confirmed failures; 4/7 static/SW passed |
-| 10 | Existing lighting/exposure/fog | pending | Matched views and frame times |
+| 10 | Existing lighting/exposure/fog | desktop verified; device pending | Modest exposure/fog/environment/hemisphere rebalance and darker ceiling tint. 24 matched views/four profiles retain lights, shader programs, texture dimensions, PR, MSAA, anisotropy, draw calls and triangles. Headless frame-time evidence saved; subjective and sustained device acceptance pending |
 | 11 | Close playable stairwell | automated verified | Both gates closed; removed upper flight, height field, elevated spawns and special bounds. Player/enemy clamps, bullet-wall occlusion and all type hit volumes pass. Ammo/med drops now both start on the platform (obsolete elevated ammo/halo origin removed); human assessment pending |
 | 12 | Native menu buttons/touch instructions | automated verified | `06d0398`; keyboard-native actions, aria-pressed difficulty, focus styling/restoration, explicit pause quit; worker keyboard/touch checks |
 | 13 | Transient-state resets | automated verified | Full restart clears input, velocity/jump, recoil, bob, weapon pump/bloom/kick/flash/raise, pooled effects and decals; explicit baseline camera/weapon pose; accumulated 42/42 checks pass |
@@ -59,9 +59,10 @@ Bounds: 12 hours from supervisor start, at most 24 continuation attempts, at lea
 - Worker QA baseline reproduced input, WebGL, layout, movement, reset, malformed save, disposal, and cache defects; also exposed EASY NG+ finale recipe/queue mismatch (31 entries, 29 spawns). Fix the recipe budget without dropping the conductor.
 - `7894b1e`: bounded supervisor and seven unit checks; running under caffeinate, 12-hour deadline, 15-minute retry cadence, at most 24 continuations. STOP file: `.git/ashworth-run/STOP`. Status/logs in `.git/ashworth-run/` (never tracked).
 - GitHub Pages is configured to deploy the root of `main`; GitHub authentication is available.
-- Extended suite: 129/130 browser checks initially passed; remaining check exposed stale elevated ammo/halo placement. Corrected; focused pickup/restart 3/3 passed. Full rerun required before publication. No deployment yet.
+- Core completed: 130/130 accumulated browser checks and 7/7 syntax/import/cache checks pass at `ee07718`; 8/8 supervisor unit checks pass. No deployment yet.
+- Rendering baseline: `/tmp/ashworth-render-before/` (core HTML `ee07718`, actual HTML hash in render.json), four fixed-quality profiles and 24 scenes. Software/headless timing is not device certification. Lighting comparison in `/tmp/ashworth-render-lighting/` retains every measured resource/draw/quality budget.
 - Provider Subscription Sharing allowance was exhausted. Supervisor performed 11 bounded 15-minute retries and resumed this saved session after access returned. Temporarily paused to add pending-request deduplication; preserve its original deadline/remaining attempt budget when restarting.
-- Next: integrate extended safety tests, implement comfort controls, then capture a post-functional/pre-graphics baseline and make bounded graphics passes.
+- Next: reflective materials and selective silhouettes; integrate procedural/contact and documentation workers; serial rendering comparison and full release checks, then publish.
 
 ## Required final assessment
 

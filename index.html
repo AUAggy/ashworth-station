@@ -769,7 +769,7 @@ let basePR=Math.min(window.devicePixelRatio||1,COARSE?1.25:1.75), curPR=basePR;
 renderer.setPixelRatio(curPR);
 renderer.setSize(window.innerWidth,window.innerHeight);
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.08;
+renderer.toneMappingExposure=1.04;
 let MAXA=renderer.capabilities.getMaxAnisotropy();
 /* 16x aniso on the floor and ceiling planes is exactly the grazing-angle
    case it costs most for. 4x is visually near-identical on a tablet. */
@@ -777,7 +777,7 @@ const ANISO=Math.min(MAXA,COARSE?4:16);
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x05070a);
-scene.fog=new THREE.FogExp2(0x06090c,0.0225);
+scene.fog=new THREE.FogExp2(0x06090c,0.0205);
 
 const camera=new THREE.PerspectiveCamera(74,window.innerWidth/window.innerHeight,0.035,240);
 camera.rotation.order='YXZ';
@@ -786,7 +786,7 @@ scene.add(camera);
 { // subtle environment for wet-metal sheen
   const pmrem=new THREE.PMREMGenerator(renderer);
   scene.environment=pmrem.fromScene(new RoomEnvironment(),0.03).texture;
-  scene.environmentIntensity=0.16;
+  scene.environmentIntensity=0.24;
   pmrem.dispose();
 }
 
@@ -1600,7 +1600,7 @@ const STAIR_STEP=chamferBox(3.4,0.19,0.34,0.02);
 {
   const t=TEX.ceil.clone();t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,14);t.needsUpdate=true;
   const c=new THREE.Mesh(new THREE.PlaneGeometry(WALL_X*2,LEN),
-      addNormal(new THREE.MeshStandardMaterial({map:t,roughness:.98}),0.8));
+      addNormal(new THREE.MeshStandardMaterial({map:t,color:0xc4c6bd,roughness:.98}),0.8));
   c.rotation.x=Math.PI/2;c.position.set(0,CEIL,(Z_MIN+Z_MAX)/2);
   world.add(addHit(c));
 }
@@ -1745,8 +1745,8 @@ for(let i=0;i<POOL;i++){
   const l=new THREE.PointLight(0xffffff,0,16,2);
   scene.add(l);pool.push({l,targetI:0,i:0});
 }
-scene.add(new THREE.AmbientLight(0x2a3138,0.5));
-const hemi=new THREE.HemisphereLight(0x5a6874,0x14161a,0.36);scene.add(hemi);
+scene.add(new THREE.AmbientLight(0x2a3138,0.6));
+const hemi=new THREE.HemisphereLight(0x6b7b86,0x161a1c,0.45);scene.add(hemi);
 
 let poolTimer=0;
 function updateLightPool(dt,pos){
