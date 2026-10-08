@@ -132,7 +132,7 @@ add('movement at 30/60/120 Hz: walk/sprint/aim/strafe and stop', {}, async page 
       Object.assign(__test.keys,{w:true,shift:mode==='sprint',d:mode==='strafe'});
       let distance=0;
       // Integrate actual velocity, resetting position to avoid station collisions/bounds.
-      for(let i=0;i<hz*2;i++){__test.player.pos.set(0,1.68,30);__test.updatePlayer(1/hz);distance+=Math.hypot(__test.player.vel.x,__test.player.vel.z)/hz;} 
+      for(let i=0;i<hz*2;i++){__test.player.pos.set(0,1.68,30);__test.updatePlayer(1/hz);distance+=Math.hypot(__test.player.vel.x,__test.player.vel.z)/hz;}
       for(const key in __test.keys)__test.keys[key]=false;
       for(let i=0;i<hz;i++)__test.updatePlayer(1/hz);
       rows.push({mode,hz,distance,stopped:__test.player.vel.length()});
@@ -433,6 +433,10 @@ for(const gesture of ['mouse','touch','keyboard'])for(const intent of ['resume',
       assert.equal(await evaluate(page,()=>__test.state.pausesLeft),0);
       if(gesture!=='touch'){
         await page.waitForFunction(()=>__test.state.fallbackLook);assert.ok(await evaluate(page,()=>__lockRequests>0),'did not exercise rejected pointer lock');
+        const yaw=await evaluate(page,()=>__test.player.yaw);
+        await page.mouse.move(1000,360);await evaluate(page,()=>__test.advance(.1));
+        assert.ok(Math.abs(await evaluate(page,()=>__test.player.yaw)-yaw)>.01,'fallback steering did not move the view');
+        assert.equal(await evaluate(page,()=>__test.weapons.pistol.ammo),15);
       }
     }
   });
@@ -634,6 +638,33 @@ for(const path of ['clear','corpse']) add(`GPU disposal plateau after warm-up: $
   }, path);
   console.log(`  ${path} resources`,JSON.stringify(counts));
   for(const field of ['geometries','textures','programs'])assert.ok(counts.at(-1)[field]<=counts[2][field]+1,`${field} grew after warm-up: ${counts.map(c=>c[field])}`);
+});
+add('actual kill-expiry-redeploy disposes owned materials once, not shared geometry', {}, async page=>{
+  const result=await evaluate(page,()=>{
+    __test.startGame();__test.updatePlayer(0);__test.render();
+    const materials=[],geometries=new Map(),counts=[];
+    for(let cycle=0;cycle<3;cycle++){
+      const actors=['walker','runner','crawler','brute','conductor'].map((type,i)=>__test.spawnZombie(type,(i-2)*1.5,0,20,{}));
+      for(const e of actors){
+        for(const m of [...e.refs.mats,e.shadow.material]){
+          const row={id:m.id,disposed:0};materials.push(row);m.addEventListener('dispose',()=>row.disposed++);
+        }
+        e.g.traverse(o=>{if(o.geometry&&!geometries.has(o.geometry.id)){
+          const row={id:o.geometry.id,disposed:0};geometries.set(row.id,row);o.geometry.addEventListener('dispose',()=>row.disposed++);
+        }});
+      }
+      __test.render();
+      actors.forEach((e,i)=>__test.killEnemy(e,i%2===0,__test.player.pos.clone().set(0,0,-1)));
+      __test.render();for(let i=0;i<270;i++)__test.updateEnemies(1/60);
+      if(__test.enemies.length)throw new Error('killed corpses did not expire');
+      __test.startGame();__test.updatePlayer(0);__test.render();counts.push(__test.memory());
+    }
+    return {materials,geometries:[...geometries.values()],counts};
+  });
+  assert.equal(result.materials.length,90);
+  for(const row of result.materials)assert.equal(row.disposed,1,JSON.stringify(row));
+  for(const row of result.geometries)assert.equal(row.disposed,0,JSON.stringify(row));
+  for(const field of ['geometries','textures','programs'])assert.ok(result.counts.at(-1)[field]<=result.counts[0][field]+1);
 });
 add('recipes match wave queue for EASY/HERO and NG+ levels', {}, async page => {
   const recipes=await evaluate(page, () => {

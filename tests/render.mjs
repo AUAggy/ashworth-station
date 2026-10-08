@@ -72,15 +72,15 @@ try{
       // Benchmark the same frozen crowded scene. Do not allow adaptive resolution or
       // changing enemy simulation to conceal a slower graphics pass.
       const timing=await page.evaluate(()=>new Promise(resolve=>{
-        const intervals=[];let last,warmup=20;
+        const intervals=[],renderMs=[];let last,warmup=20;
         function sample(now){
-          __test.render();
+          const start=performance.now();__test.render();const submitted=performance.now()-start;
           if(warmup>0){warmup--;last=now;}
-          else{intervals.push(now-last);last=now;}
+          else{intervals.push(now-last);renderMs.push(submitted);last=now;}
           if(intervals.length<120)__nativeRAF(sample);
           else{
             const gl=__bench.renderer.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');
-            resolve({intervals,...__test.memory(),pixelRatio:__bench.renderer.getPixelRatio(),
+            resolve({intervals,renderMs,...__test.memory(),pixelRatio:__bench.renderer.getPixelRatio(),
               driver:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)});
           }
         }
@@ -88,6 +88,8 @@ try{
       }));
       const sorted=[...timing.intervals].sort((a,b)=>a-b);
       timing.medianMs=sorted[Math.floor(sorted.length/2)];timing.p95Ms=sorted[Math.ceil(sorted.length*.95)-1];
+      timing.meanMs=timing.intervals.reduce((a,b)=>a+b,0)/timing.intervals.length;
+      timing.renderMedianMs=[...timing.renderMs].sort((a,b)=>a-b)[Math.floor(timing.renderMs.length/2)];
       assert.equal(timing.pixelRatio,scenes.at(-1).pixelRatio);assert.deepEqual(errors,[]);
       results.push({profile,loadMs,scenes,timing});
       console.log('PASS fixed-quality',profile.name,'median',timing.medianMs.toFixed(2),'p95',timing.p95Ms.toFixed(2),
@@ -95,7 +97,7 @@ try{
     }finally{await context.close();}
   }
   const report={label:process.env.ASHWORTH_CAPTURE_LABEL||'unset',htmlSHA256:createHash('sha256').update(source).digest('hex'),
-    browser:browser.version(),note:'Desktop headless Chromium / touch emulation. Frozen crowded scene, fixed original quality, raw pre-clamp RAF intervals. Not real-device thermal, battery, playability, or GPU-time certification.',results};
+    browser:browser.version(),note:'Desktop headless Chromium / touch emulation. Frozen crowded scene, fixed original quality, raw pre-clamp RAF intervals. renderMs measures CPU/driver submission, not completed GPU work. Not real-device thermal, battery, playability, or GPU-time certification.',results};
   await writeFile(join(directory,'render.json'),JSON.stringify(report,null,2));
   if(process.env.ASHWORTH_COMPARE){
     const before=JSON.parse(await readFile(process.env.ASHWORTH_COMPARE,'utf8'));
