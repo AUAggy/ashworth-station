@@ -1,6 +1,6 @@
 # Ashworth Station
 
-A single-file, browser-based zombie survival FPS. Hold the uptown platform at Ashworth Street while the northbound pulls in and the doors open onto more of them. Fifteen waves. The last one is a train that keeps unloading. You will lose. The record is how long you lasted.
+A single-file, browser-based zombie survival FPS. Hold the uptown platform at Ashworth Street while the northbound pulls in and the doors open onto more of them. Fifteen waves. The last one is the finale. Clear it to earn a badge and start New Game+. The record is your highest score, on a win or a loss.
 
 ![Ashworth Station](og-image.png)
 
@@ -8,7 +8,7 @@ A single-file, browser-based zombie survival FPS. Hold the uptown platform at As
 
 **Play it:** <https://auaggy.github.io/ashworth-station/>
 
-**Run it yourself:** the game is one HTML file. Download it and serve it over HTTP from the folder it sits in:
+**Run it yourself:** download the checkout, including `vendor/` and `sw.js`, and serve it over HTTP:
 
 ```sh
 python3 -m http.server 8000
@@ -17,7 +17,7 @@ python3 -m http.server 8000
 
 It needs a web server rather than a double-click because the page is an ES module that imports three.js by bare specifier. Opened straight off disk as `file://`, the module fetch runs from a null origin and browsers disagree about whether to allow it. Any static host works: GitHub Pages, S3, a USB stick behind nginx, `python3 -m http.server`.
 
-**The file:** `index.html` plus the engine it imports, vendored under `vendor/`, and a small service worker. No images, no audio files, no fonts, no build step, no server, and no network dependency at all: the engine is vendored, and the service worker precaches the lot, so the game boots with no internet and an empty browser cache. Needs WebGL; if the browser can't give it a context, the title screen says so instead of failing silently.
+**The file:** `index.html` plus the engine it imports, vendored under `vendor/`, and a small service worker. Gameplay textures and audio are generated, with no runtime package dependencies, external fonts, build step, or application server. The engine is local; the service worker supports offline reload after a successful online visit on HTTPS or localhost. A first-ever offline visit cannot install the game. `og-image.png` is a social-preview asset, not a gameplay texture. Needs WebGL; if the browser can't give it a context, the title screen says so instead of failing silently.
 
 The rest of this is how it got that way, and it is mostly a story about things that broke.
 
@@ -31,7 +31,7 @@ The other day I came across [youtuber Bijan's review](https://youtu.be/9Z9rPZavj
 
 It was fun in the way a sketch is fun: the loop worked, the mood was right, and the code was a house of cards. Any real change risked collapsing it, and it would never survive a tablet.
 
-So it was rewritten from scratch, then hardened through hours of iteration and hundreds of playtest rounds, mostly against the two platforms that matter here: a kid on an iPad, and a desktop browser with a mouse. This repository is the result. It is the difference between a demo and a thing you hand a nine-year-old and walk away from.
+So it was rewritten from scratch, with a kid on an iPad and a desktop browser with a mouse as the intended players. The history below records the bugs that shaped it. Current automated checks cover Chromium and touch emulation; actual iPad behavior, HERO balance, and sustained mobile thermal performance still need real-device play.
 
 Almost none of that difference is features. It is this list.
 
@@ -57,7 +57,7 @@ Few playtest rounds ended in a crash. Crashes are easy; you get a stack trace an
 | Zombies barely hurt a moving player | Attack cooldown only counted down inside `reach`, and enemies froze the moment they arrived, so anyone faster stepped out of every swing | Close to 0.75x reach, run the timer across a wider band, land the hit at the end of a telegraphed windup |
 | A crowd could be walked straight through | Enemies were never added to the collision set | Push the player, accumulated across the pack and capped |
 | A hit from behind looked exactly like a hit from the front | `damagePlayer` received the attacker's position and discarded it | Three pooled arrows on the bearing relative to facing |
-| Backing into an end wall was the safest place in the game | Every wave after the first spawned from the train doors at mid-platform, forty meters away | Spawn from the tunnel mouths and stair alcoves at whichever end the player is nearest |
+| Backing into an end wall was the safest place in the game | Every wave after the first spawned from the train doors at mid-platform, forty meters away | Spawn from tunnel mouths, level platform entrances and the track bed, with at least 7 m of horizontal clearance |
 
 Read the list again and it sorts itself into three piles. Three rows are iOS specifically, a fourth is telling a touchscreen apart from a touch-first device, and three more are a GPU that cannot afford the work being asked of it. That is one constraint. The next four are a game that has to survive on its own with nobody to restart the server, because there is no server.
 
@@ -66,7 +66,7 @@ The last four rows are a different animal, and they took the longest to see. Not
 So, derived rather than declared:
 
 1. **The kid plays on an iPad.** Touch input, small screens, short attention, no patience for a game that stutters or a game that cheats.
-2. **The deliverable is one file.** A link has to be enough. No install, no assets folder, no account, no telemetry, nothing to break.
+2. **The game lives in one HTML file.** A link has to be enough. The engine and worker ship beside it; play needs no install, account or application telemetry.
 3. **The game has to be able to beat you.** It is built to be lost, so anything that quietly makes losing optional (a swing that never lands, a crowd you can walk through, a corner with a wall behind it) is not generosity. It is the game failing at its only job.
 
 Everything below is those three, followed to their conclusions.
@@ -75,15 +75,19 @@ Everything below is those three, followed to their conclusions.
 
 ## Playing it
 
-Desktop: `WASD` move, `SHIFT` sprint, `SPACE` jump, mouse to aim, left click to fire, right click for sights, `R` reload, `1` `2` `3` weapons, `ESC` pause, `Q` to quit from the end screen. Aiming uses pointer lock; where pointer lock is blocked, typically inside an iframe, the game falls back to steering by mouse position and says so on screen.
+Desktop: `WASD` move, `SHIFT` sprint, `SPACE` jump, mouse to aim, left click to fire, right click for sights, `R` reload, `1` `2` `3` weapons, `ESC` for a tactical pause. Menus use native buttons: `Tab` to focus, `Enter` or `Space` to activate, including RESUME and QUIT TO TITLE. Aiming uses pointer lock; where pointer lock is blocked, typically inside an iframe, the game falls back to steering by mouse position.
 
-Touch: left thumb on an analog stick, right thumb aims anywhere, and dedicated `RELOAD`, `JUMP` and `TURN` buttons. `TURN` is a 180-degree flip for when the horde gets behind you.
+Touch: left thumb on an analog stick, right thumb drags to aim, weapon slots select a gun, and dedicated `RELOAD`, jump (`▲`), pause (`II`) and `TURN` controls. `TURN` is a 180-degree flip for when the horde gets behind you.
 
 The fire button is also an aim zone: hold to shoot, drag to look, one thumb. That was a bug report from a nine-year-old before it was a feature. Kids grip the fire button and expect the same thumb to steer, and fighting that instinct loses.
 
-Pause is rationed: three presses a wave, and a press buys three seconds, because the card counts itself down and drops you back in whether you are ready or not. Spend the ration and the wave keeps running while you reload in the open: the press is denied, the banner says so, and the next wave hands the three back. On desktop the count also covers the pause a lost pointer lock gives you, because the browser taking the mouse away is the same press as any other; when the ration is spent, a click on the view takes the lock back instead of freezing the run. ESC used to be a wall the horde could not cross, free to hold for as long as the holder liked whenever the platform got loud. A game built to be lost cannot sell infinite time-outs, so the wall got a price and a timer.
+Tactical pause is rationed: three presses per wave, three seconds each. A spent ration denies the pause and leaves combat running; the next wave restores all three. Touch and fallback mouse steering can resume automatically when the timer expires. Desktop play without pointer lock stays held until you explicitly resume.
 
-Waves escalate through 15, from a handful of walkers to a capped 44, with up to 30 on the platform at once. Wave 1 comes out of the tunnel mouths. Most of every wave after that arrives as a train, which pulls in, opens its doors, and unloads, but not all of it. The rest comes from the tunnel mouths and the stair alcoves at whichever end of the platform you are standing nearest, because for a long time a wall at your back was the safest place in the game. Runners and crawlers join at wave 3, brutes at 5, and the last train brings a conductor. Two difficulty chips sit on the title screen: HERO is the real game, touch devices default to EASY, and the choice persists.
+OS interruptions, blur, hidden tabs, resize/orientation changes and externally lost pointer lock hold the run without spending another tactical pause. Held input is cleared and simulation time stops. Returning to the page does not restart combat: use RESUME or QUIT TO TITLE. A tactical pause's own lock release does not count as an interruption.
+
+MUTE SOUND and REDUCED EFFECTS are local preferences available on the title, pause and held-run menus. Reduced effects defaults to the browser's reduced-motion preference unless you override it. It removes cosmetic bob, shake, roll, sway, grain, flicker and white victory/death flashes, and dims muzzle flash. Pitch/yaw aiming recoil, damage cues and weapon damage remain.
+
+Waves escalate through 15, with regular HERO recipes capped at 44 and up to 30 enemies alive at once. The finale requests 36 enemies on HERO or 29 on EASY. Wave 1 comes out of the tunnel mouths. Most of every wave after that arrives as a train, which pulls in, opens its doors, and unloads, but not all of it. The rest comes through tunnel mouths, level platform entrances and the track bed, biased toward your nearest end. Every spawn has at least 7 m of horizontal clearance; a train door too close to you redirects to a safe flank. The stairs are closed decoration and the playable platform is level. Runners and crawlers join at wave 3, brutes at 5, and the last train brings a conductor. Two difficulty chips sit on the title screen: HERO uses full enemy health and damage; touch devices default to EASY, and the choice persists.
 
 ### Look down
 
@@ -93,11 +97,9 @@ Everything that reaches you telegraphs. A zombie in range winds up for between 0
 
 Health does not fully come back. Out of contact it regenerates to 70 and stops, 85 on EASY. Past that you need a medkit, which drops from brutes and conductors and occasionally from anything else, but only while you are already hurt, and it drops where the body fell. Ammunition works the same way: kills drop it, the between-wave restock is deliberately thin, and both of them mean the same thing, which is that holding one corner slowly starves you out of it.
 
-### The score is the loss
+### The record is the score
 
-The title screen says it: *"The last train never came. Something came down the tunnel instead."* The meta description says the rest: *"You will lose. The record is how long you lasted."*
-
-This game is designed to be lost. Wave 15 exists so that holding it means something. If you hold it, you earn a badge and the next run starts in New Game+, where the same 15 waves come back harder and your badge keeps paying. Five badges, earned in order, one per victory:
+Wave 15 is a finite finale. BEST SCORE ranks runs by score, not survival time; time remains a run statistic. If you hold it, you earn a badge and the next run starts in New Game+, where the same 15 waves come back harder and your badge keeps paying. Five badges, earned in order, one per victory:
 
 | Badge | Effect |
 |---|---|
@@ -107,7 +109,7 @@ This game is designed to be lost. Wave 15 exists so that holding it means someth
 | SCAVENGER | More ammo drops and restock |
 | SPRINTER | +10% move speed |
 
-Losing on NG+ is not a reset. The prestige counter stays, the badges stay, and the best score is recorded on death as well as victory, because a game you are meant to lose has to count the losses.
+Losing on NG+ keeps the prestige counter and badges. Death and victory both record a new best only when its score is strictly higher. Existing valid profiles retain their format; progression, the five badge booleans and the best-run record are validated independently, so an invalid best does not erase valid progress. See [save normalization](docs/HOW-IT-WORKS.md#local-profile-and-preferences).
 
 ### Weapons
 
@@ -119,13 +121,13 @@ All three bloom as you fire, which the crosshair shows, and dry-firing with rese
 
 ## Running and hosting
 
-The HTML file is the artifact. Serve it from any static host; there is nothing to build.
+The HTML, local vendor files and worker are the shipped artifact. Serve them from any static host; there is nothing to build.
 
 **GitHub Pages.** Push `index.html`, `og-image.png`, `sw.js` and `vendor/` to the repository root. In Settings, under Pages, set the source to "Deploy from a branch" and pick your default branch with the `/ (root)` folder. The game is then live at the bare repository URL, `https://<user>.github.io/<repo>/`, which is how this copy is hosted. Keep `og-image.png` beside it, and point the `og:image` meta tag at the absolute URL it will live at: Open Graph consumers do not resolve relative paths, so a relative one shows a grey card instead of the station.
 
 **Anywhere else.** Copy all of it: `index.html`, `sw.js`, `vendor/`, `og-image.png`. There is nothing to build and nothing to fetch.
 
-**Offline.** Handled by the service worker. The first visit precaches the page and the vendored engine; every reload after that, including ones with no internet and an empty HTTP cache, boots from Cache Storage. The import map points at the vendored files, so there is no third-party request at any point. When you change the page or the engine, bump the `CACHE` string in `sw.js`; activation deletes the old cache so a stale engine can never outlive its page.
+**Offline.** Handled by the service worker. The first visit precaches the page and the vendored engine; every reload after that, including ones with no internet and an empty HTTP cache, boots from Cache Storage. The import map points at the vendored files, so there is no third-party request at any point. When you change the page or the engine, bump the `CACHE` string in `sw.js`; activation deletes old `ashworth-` caches while preserving unrelated origin caches. Browser eviction or cleared site data can remove the offline copy.
 
 ---
 
@@ -141,9 +143,11 @@ Good first changes:
 - **A new enemy.** Add a config row, geometry if it needs a new shape, and a recipe line. The conductor is the template for "special"; the crawler is the template for a different *shape*, and it is the harder one, because anything that does not stand upright needs its own hit volumes, its own broad-phase bounds and its own aim-assist target, and every one of those fails quietly.
 - **A new weapon.** Add a definition row and a builder. The three builders show the pattern.
 - **Accessibility.** The difficulty chips, aim assist, and the TURN button exist because a child plays this game. Ideas in that spirit are welcome.
-- **A sixth badge.** The badge table, the earn order, and the save format all support it.
+- **Badge changes.** There are five badge slots. Adding a sixth requires updating the table, validation, save compatibility, UI and tests together.
 
-Two hard rules. Pull requests that add a build step, a package manifest, a network dependency, or an external asset file will be closed; if a change needs an image or a sound, it needs to generate it instead. And every PR must be played before it is opened, on both EASY and HERO, and with both input modes, mouse and touch. Every bug in the table above was found by playing, not by reading. Yours will be too.
+Development checks are separate from the shipped game and use externally installed Playwright. See [TESTING.md](docs/TESTING.md) for correctness checks, matched rendering captures and pending real-device checks. Vendored engine sources and hashes are in [VENDOR.md](docs/VENDOR.md).
+
+Two hard rules. Pull requests that add a build step, a package manifest, a network dependency, or an external asset file will be closed; if a change needs an image or a sound, it needs to generate it instead. And every PR must be played before it is opened, on both EASY and HERO, and with both input modes, mouse and touch. Automated checks catch regressions, but they do not replace human play on the intended devices.
 
 ---
 

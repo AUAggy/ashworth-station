@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>ASHWORTH STATION: Subway Outbreak</title>
-<meta name="description" content="The zombie horde stops only when you do. Hold the platform until wave 15's last train empties onto it. You will lose. The record is how long you lasted.">
+<meta name="description" content="The zombie horde stops only when you do. Hold the platform until wave 15's last train empties onto it. Clear wave 15 to earn a badge. Your highest score is the record.">
 <meta property="og:title" content="ASHWORTH STATION: Subway Outbreak">
-<meta property="og:description" content="The zombie horde stops only when you do. Hold the platform until wave 15's last train empties onto it. You will lose. The record is how long you lasted.">
+<meta property="og:description" content="The zombie horde stops only when you do. Hold the platform until wave 15's last train empties onto it. Clear wave 15 to earn a badge. Your highest score is the record.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://auaggy.github.io/ashworth-station/">
 <!-- Absolute, not relative: Open Graph consumers do not resolve relative URLs,
@@ -278,7 +278,7 @@
     <div class="rule"></div>
     <p class="sub menuLore">The last train never came. Something came down the tunnel instead.
       Hold the platform. Every wave, the northbound pulls in and the doors open
-      onto more of them. They come down the tunnel mouths and the stair alcoves too,
+      onto more of them. They come through the tunnel mouths and along the platform ends too,
       and some of them no longer stand up, so check the floor. Headshots tear through.</p>
     <div class="keys">
       <span><b>WASD</b>move</span><span><b>SHIFT</b>sprint</span><span><b>SPACE</b>jump</span>
@@ -750,11 +750,10 @@ const canvasEl=document.getElementById('c');
    decides the input scheme. A phone/tablet GPU is fill-rate bound long before
    it is anything else, so it gets a smaller buffer and no MSAA. */
 const COARSE=(()=>{try{return matchMedia('(pointer:coarse)').matches;}catch(e){return false;}})();
-let webglFailed=false, renderer;
+let renderer;
 try{
   renderer=new THREE.WebGLRenderer({canvas:canvasEl,antialias:!COARSE,powerPreference:'high-performance'});
 }catch(err){
-  webglFailed=true;
   document.getElementById('panel').innerHTML=
     '<div class="kicker">ASHWORTH ST</div><h1>NO WEBGL</h1><div class="rule"></div>'+
     '<p class="sub">This browser can\'t open a WebGL context, so the station can\'t be drawn. '+
@@ -1359,7 +1358,7 @@ function chamferBox(w,h,d,c){
   const g=new THREE.ExtrudeGeometry(s,{depth:dep,bevelEnabled:true,
     bevelThickness:c,bevelSize:c,bevelSegments:1,steps:1});
   g.translate(0,0,-dep/2);          // extrusion runs 0..dep, the bevel adds +-c
-  const f=g.toNonIndexed();
+  const f=g.index?g.toNonIndexed():g;
   /* BoxGeometry gave every face its own 0..1 UV square, so a texture painted for
      one face of the box landed correctly on all six. ExtrudeGeometry's
      generator does not: it emits raw vertex coordinates, which on these boxes
@@ -1383,7 +1382,7 @@ function chamferBox(w,h,d,c){
     f.setAttribute('uv',new THREE.BufferAttribute(uv,2));
   }
   f.computeVertexNormals();
-  g.dispose();
+  if(f!==g)g.dispose();
   return f;
 }
 
@@ -3018,7 +3017,7 @@ function showHS(text){
 const rc=new THREE.Raycaster();
 rc.far=140;
 const _dir=new THREE.Vector3(), _o=new THREE.Vector3(), _muzzle=new THREE.Vector3();
-const _tmpQ=new THREE.Quaternion(), _right=new THREE.Vector3(), _upv=new THREE.Vector3();
+const _right=new THREE.Vector3(), _upv=new THREE.Vector3();
 const _end=new THREE.Vector3(), _n=new THREE.Vector3(), _av=new THREE.Vector3();
 
 function muzzleWorld(w){
@@ -3428,7 +3427,7 @@ function startWave(){
    else, and the train stops at mid-platform. Standing at either end therefore
    bought a 40m firing lane with a wall at your back — the whole exploit in one
    line of spawn logic. A share of each wave now arrives from the tunnel mouth
-   and the stair alcove at whichever end the player is nearest. */
+   and level platform entrances at whichever end the player is nearest. */
 const SPAWN_CLEARANCE=7;
 function spawnFlank(type){
   const pz=player.pos.z;
@@ -3449,7 +3448,7 @@ function spawnFlank(type){
   if(type==='crawler'||r<0.40){
     spawnZombie(type,(Math.random()<0.5?-1:1)*rand(PLAT+1.2,PLAT+3.2),BED,z,{});
   } else if(r<0.74){
-    spawnZombie(type,rand(-1.6,1.6),0,z,{});          // down the stair alcove
+    spawnZombie(type,rand(-1.6,1.6),0,z,{});          // level platform entrance; stairs are closed scenery
   } else {
     spawnZombie(type,rand(-4.6,4.6),0,z,{});
   }
@@ -3848,8 +3847,8 @@ function resume(fromGesture=false){
 /* One place to record a finished run. Guarded, so a weaker run can no longer
    overwrite the best — the old code reassigned bestRun unconditionally and then
    read it back two lines later, which made "BEST SCORE" always echo the run you
-   had just played. Called from gameOver() too: this game is designed to be lost,
-   so a loss has to persist or "the record is how long you lasted" means nothing. */
+   had just played. Called from gameOver() too, so a high-scoring loss can
+   set the record as well as a victory. Survival time is a run statistic. */
 function recordRun(){
   const acc=stats.shots?Math.round(stats.hits/stats.shots*100):0;
   if(!bestRun||score>(bestRun.score||0))
@@ -3952,7 +3951,6 @@ elScreens.addEventListener('pointerdown',()=>{
   if(touchMode)lastTouchT=Date.now();
 });
 elScreens.addEventListener('click',e=>{
-  if(webglFailed)return;
   const button=e.target.closest?.('button');
   if(!button||!elScreens.contains(button))return;
   if(button.id==='muteBtn'||button.id==='effectsBtn'){

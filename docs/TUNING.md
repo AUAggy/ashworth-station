@@ -1,6 +1,6 @@
 # Tuning tables
 
-All balance lives in data. Weapon definitions sit in one object, enemy stats in one table, wave recipes in the director. Changing the game means editing a number, not untangling a branch.
+Weapon definitions sit in one object, enemy stats in one table, and wave recipes in the director in [index.html](../index.html). The tables below describe those rules; human EASY/HERO balance approval remains pending.
 
 ## Weapons
 
@@ -48,5 +48,26 @@ dmg:   (base + (wave - 1) * 0.55) * (1 + 0.25 * ngP) * (easy ? 0.6 : 1)
 
 Each zombie also rolls a speed jitter between 0.9x and 1.12x, so the same wave never moves the same way twice.
 
+Target walking speed is 4.5 m/s, multiplied by 1.62 while sprinting or 0.55 while aiming, and by 1.1 with SPRINTER. Time-based acceleration/friction removes the previous refresh-rate dependence; the browser suite compares travel at 30/60/120 Hz.
+
 On the player's side of the ledger: regeneration starts 10 seconds after the last hit and runs at 4 HP/s, stopping at 70. On EASY that is 8 seconds, 6 HP/s and a ceiling of 85. Medkits restore 35 and drop only while you are below roughly 60.
+
+## Finale roster
+
+Wave 15 requests 36 enemies on HERO, or `round(36 * 0.8) = 29` on EASY. `buildComposition(n, final)` reserves `min(12, 6 + 2 * ngP)` brutes, nine crawlers and `min(3, 1 + ngP)` conductors. Runners get `min(12, max(0, n - brutes - crawlers - conductors))`; walkers fill any remainder. This keeps the recipe and queue equal without removing bosses.
+
+| EASY NG+ | Brutes | Crawlers | Conductors | Runners | Walkers | Total |
+|---|---|---|---|---|---|---|
+| 0 | 6 | 9 | 1 | 12 | 1 | 29 |
+| 1 | 8 | 9 | 2 | 10 | 0 | 29 |
+| 2 | 10 | 9 | 3 | 7 | 0 | 29 |
+| 3 and above | 12 | 9 | 3 | 5 | 0 | 29 |
+
+The finale spawn gap is 0.24 seconds; the concurrent live cap remains 30. Victory earns the next of five badges and increments NG+. Losing preserves both; BEST SCORE compares score, not time.
+
+## Safety and graphics settings
+
+`SPAWN_CLEARANCE` is 7 m horizontally. Near-player train doors redirect to a safe flank; stairs are closed decoration, with a level playable platform. Tactical pause is three seconds, three times per wave. Interrupted controls hold the run without an additional ration and require explicit resume.
+
+For current exposure, material roughness, light strengths and procedural texture settings, read the renderer, material tables and texture generators in [index.html](../index.html). Keep those values in the source rather than maintaining a second tuning table here. Use [tests/render.mjs](../tests/render.mjs) and the [capture instructions](TESTING.md#matched-graphics-capture) to compare matched scenes at fixed quality. Headless timings do not establish actual mobile frame times or thermal behavior.
 
