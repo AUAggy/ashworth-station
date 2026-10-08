@@ -106,6 +106,26 @@ Standard-library SW failure details: activation removed an unrelated cache; a po
 
 Raw run logs remain local at `/tmp/ashworth-qa-check-baseline.log` and `/tmp/ashworth-qa-browser-baseline.log`. The matched baseline capture is local at `/var/folders/0_/3lt66k5n3_sbpl4bqjf_0k380000gn/T/ashworth-capture-1791471055119/`. Its 180 raw intervals had median **33.40 ms**, p95 **66.70 ms**, and maximum **83.40 ms**; the final frame reported **762 draw calls**, **37,856 triangles**, **228 geometries**, **34 textures**, and **20 programs**. Repeated baseline leaks and headless software/hardware scheduling affect those numbers; do not call them real-device performance evidence.
 
+## Service-worker fix verification
+
+After the separate `sw.js` change to **ashworth-v3**, with `index.html` still unmodified:
+
+```text
+$ node tools/check.mjs
+7/7 passed; 0 failed (exit 0)
+
+$ node tests/browser.mjs
+14/27 passed; 13 failed (exit 1)
+PASS real SW: primed offline query reload
+PASS real SW: unrelated cache preservation
+```
+
+All five worker checks now pass: pre-cache/query navigation; old Ashworth cache deletion without deleting an unrelated cache; own-cache lookup despite poisoned unrelated entries; no interception/cache growth for arbitrary assets or query-variant assets; cross-origin/non-GET bypass. Both real-browser worker cases pass too. Cache lookup is through `caches.open(CACHE)`, cleanup is limited to `ashworth-` names, and only exact pre-cache URLs or navigations are handled. The unsupported seven-day Safari eviction claim has been removed.
+
+The remaining **13 expected baseline failures** are menu gestures, forced WebGL failure, 844×390 menu clipping, movement timing, restart transients, focus-loss aim/suspension, four unsafe-save cases (negative, wrong types, invalid best with valid progress, huge progression with an invalid best), both GPU disposal paths, and recipe/queue agreement. They still fail normally and block a green release result; no application fix is claimed here.
+
+Post-fix logs remain local at `/tmp/ashworth-qa-check-v3.log` and `/tmp/ashworth-qa-browser-v3.log`. Protected application/plan/review files were not edited.
+
 ## Release checklist
 
 - [ ] Run `node tools/check.mjs` and `node tests/browser.mjs`; resolve every failure before release.
