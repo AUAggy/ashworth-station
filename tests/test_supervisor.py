@@ -45,6 +45,21 @@ class SupervisorTests(unittest.TestCase):
         self.assertFalse(supervisor.PERMANENT.search(error))
         self.assertTrue(supervisor.PERMANENT.search('insufficient_quota: check billing'))
 
+    def test_queued_prompt_or_tool_work_never_receives_duplicate_continuation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            session = Path(directory) / 'session.jsonl'
+            self.assertTrue(supervisor.session_pending(session))
+            session.write_text(events({'message': {'role': 'user', 'content': supervisor.PROMPT}}))
+            self.assertTrue(supervisor.session_pending(session))
+            session.write_text(events({'message': ended('toolUse')['message']}))
+            self.assertTrue(supervisor.session_pending(session))
+            session.write_text(events({'message': {'role': 'toolResult'}}))
+            self.assertTrue(supervisor.session_pending(session))
+            session.write_text(events({'message': ended('error', 'usage limit')['message']}))
+            self.assertFalse(supervisor.session_pending(session))
+            session.write_text(events({'message': ended()['message']}))
+            self.assertFalse(supervisor.session_pending(session))
+
     def test_ledger_and_latest_assistant(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

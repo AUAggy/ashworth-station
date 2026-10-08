@@ -43,6 +43,21 @@ def last_error(session):
     return last.get('errorMessage', '') if last.get('stopReason') == 'error' else ''
 
 
+def session_pending(session):
+    """An idle status is insufficient while a prompt/tool result still awaits its turn."""
+    if not session or not session.exists():
+        return True  # fail closed when the interactive writer's state cannot be checked
+    latest = {}
+    for line in session.read_text().split('\n'):
+        try:
+            message = json.loads(line).get('message', {})
+        except ValueError:
+            continue
+        if message.get('role') in ('user', 'assistant', 'toolResult'):
+            latest = message
+    return latest.get('role') != 'assistant' or latest.get('stopReason') in ('pending', 'toolUse')
+
+
 def coordinator(root):
     result = subprocess.run(['herdr', 'pane', 'list'], capture_output=True, text=True)
     if result.returncode:
@@ -139,6 +154,9 @@ def main():
             if any(p.get('agent_status') not in ('idle', 'done') for p in panes):
                 time.sleep(min(args.interval, max(0, deadline - time.time())))
                 continue
+            if panes and session_pending(args.session_file):
+                time.sleep(min(args.interval, max(0, deadline - time.time())))
+                continue
             error = last_error(args.session_file) if panes else ''
             if PERMANENT.search(error):
                 record('blocked', 'Permanent provider error; inspect coordinator session')
@@ -152,7 +170,9 @@ def main():
             if panes:
                 # Recheck immediately before input; the live Pi process remains the only writer.
                 fresh = coordinator(root)
-                if len(fresh) != 1 or fresh[0].get('agent_status') not in ('idle', 'done'):
+                if len(fresh) != 1:
+                    raise RuntimeError('Ambiguous coordinator; refusing pane input')
+                if fresh[0].get('agent_status') not in ('idle', 'done') or session_pending(args.session_file):
                     attempts -= 1
                     continue
                 subprocess.run(['herdr', 'pane', 'run', fresh[0]['pane_id'], PROMPT], check=True)
