@@ -68,8 +68,22 @@ add('desktop difficulty/deploy/redeploy/resume gestures never fire', {}, async p
   ammo.redeploy=await evaluate(page, () => __test.weapons.pistol.ammo);
   await evaluate(page, () => {__test.weapons.pistol.ammo=15;__test.weapons.pistol.cool=0;__test.pause();});
   await (await action(page,/RESUME/i,'#pauseCta')).click();
+  assert.equal(await evaluate(page, () => __test.state.gameState), 'playing');
   ammo.resume=await evaluate(page, () => __test.weapons.pistol.ammo);
   assert.deepEqual(ammo,{deploy:15,redeploy:15,resume:15},'menu gestures consumed rounds');
+});
+add('only canvas mouse gestures shoot; both mouse buttons release independently', {}, async page => {
+  await evaluate(page,()=>{__test.startGame();__test.setup({fallbackLook:true});
+    document.body.dispatchEvent(new MouseEvent('mousedown',{button:0,bubbles:true}));});
+  assert.equal(await evaluate(page,()=>__test.weapons.pistol.ammo),15);
+  await page.locator('#c').dispatchEvent('mousedown',{button:0,bubbles:true});
+  assert.equal(await evaluate(page,()=>__test.weapons.pistol.ammo),14);
+  await page.locator('#c').dispatchEvent('mousedown',{button:2,bubbles:true});
+  assert.deepEqual(await evaluate(page,()=>({fire:__test.state.firing,aim:__test.state.aiming})),{fire:true,aim:true});
+  await page.locator('#c').dispatchEvent('mouseup',{button:2,bubbles:true});
+  assert.deepEqual(await evaluate(page,()=>({fire:__test.state.firing,aim:__test.state.aiming})),{fire:true,aim:false});
+  await page.locator('#c').dispatchEvent('mouseup',{button:0,bubbles:true});
+  assert.equal(await evaluate(page,()=>__test.state.firing),false);
 });
 add('forced WebGL failure: fallback, no exception, no frame', { webglFail:true }, async (page, context, errors) => {
   assert.match(await page.locator('#panel').innerText(), /WebGL|graphics/i);

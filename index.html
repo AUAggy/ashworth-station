@@ -3605,9 +3605,8 @@ canvasEl.addEventListener('pointerdown',()=>{
     if(p&&p.catch)p.catch(()=>{});
   }
 });
-window.addEventListener('mousedown',e=>{
-  if(gameState!=='playing')return;
-  if(touchMode&&Date.now()-lastTouchT<700)return;
+canvasEl.addEventListener('mousedown',e=>{
+  if(gameState!=='playing'||touchMode||e.sourceCapabilities?.firesTouchEvents)return;
   if(e.button===0){firing=true;fire();}
   if(e.button===2){aiming=true;}
 });

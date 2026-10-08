@@ -6,7 +6,7 @@
 
    Bump CACHE whenever index.html or anything in vendor/ changes — the old
    cache is deleted on activate, so a stale engine can never outlive its page. */
-const CACHE = 'ashworth-v3';
+const CACHE = 'ashworth-v4';
 const PRECACHE = [
   './',
   './index.html',
