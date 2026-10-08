@@ -119,6 +119,9 @@
   .cta{display:block;margin:28px auto 0;padding:12px 26px;border:1px solid #f2f4f7;
     background:#0b111c;color:#f2f4f7;font-size:14px;font-weight:700;letter-spacing:.3em;text-indent:.3em}
   .cta:hover{background:#f2f4f7;color:#0b111c}
+  .comfort{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
+  body.reduced-effects #grain,body.reduced-effects #flash{display:none}
+  body.reduced-effects *{animation:none!important;transition:none!important}
   @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
   .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:30px}
   .stats div{min-width:0;overflow-wrap:anywhere}
@@ -287,6 +290,10 @@
       <button type="button" class="chip" id="dSurv" aria-pressed="false">HERO</button>
     </div>
     <button type="button" class="cta" id="cta">DEPLOY</button>
+    <div class="comfort" role="group" aria-label="Comfort controls">
+      <button type="button" class="chip" id="muteBtn" aria-pressed="false">MUTE SOUND</button>
+      <button type="button" class="chip" id="effectsBtn" aria-pressed="false">REDUCED EFFECTS</button>
+    </div>
     <div class="prestige" id="prestigeLine">NEW GAME+ 0 · NO BADGES</div>
     <div class="note" id="note">Ammunition comes off the bodies. You have to go and get it. Look down. The wounds stay behind. Wave 15 is THE LAST TRAIN: hold it to forge a New Game+.</div>
   </div>
@@ -317,6 +324,12 @@ const randi=(a,b)=>Math.floor(a+Math.random()*(b-a+1));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const TAU=Math.PI*2;
 const smooth=t=>t*t*(3-2*t);
+const prefs={muted:false,reducedEffects:matchMedia('(prefers-reduced-motion: reduce)').matches};
+try{
+  const saved=JSON.parse(localStorage.getItem('ashworthPrefs')||'null');
+  for(const key of Object.keys(prefs))if(typeof saved?.[key]==='boolean')prefs[key]=saved[key];
+}catch(e){}
+document.body.classList.toggle('reduced-effects',prefs.reducedEffects);
 
 /* ============================================================ AUDIO ENGINE
    All synthesized. A generated impulse response gives the platform its
@@ -353,7 +366,7 @@ const SFX=(function(){
        and a half-built context would sail past that guard and throw. */
     try{ctx=new AC();}catch(e){ctx=null;return;}
     started=true;
-    master=ctx.createGain();master.gain.value=0.9;
+    master=ctx.createGain();master.gain.value=prefs.muted?0:0.9;
     const comp=ctx.createDynamicsCompressor();
     comp.threshold.value=-14;comp.knee.value=18;comp.ratio.value=7;
     comp.attack.value=0.003;comp.release.value=0.24;
@@ -435,6 +448,7 @@ const SFX=(function(){
   const api={
     init,resume,setRumble,
     suspend(){if(ctx){const p=ctx.suspend();if(p&&p.catch)p.catch(()=>{});}},
+    setMuted(value){if(master)master.gain.value=value?0:0.9;},
     get ok(){return !!ctx;},
     state(){return ctx?ctx.state:'none';},
 
@@ -1709,9 +1723,10 @@ for(let z=Z_MIN+5;z<Z_MAX;z+=10) fxList.push(fluorescent(0,CEIL-0.5,z,Math.PI/2)
 function updateFlicker(dt){
   for(const f of flickers){
     f.t-=dt;
-    if(f.t<=0){
+    if(f.t<=0||(prefs.reducedEffects&&f.k!==1)){
       f.t=rand(0.05,0.4);
       f.k=Math.random()<0.3?rand(0.12,0.5):1;
+      if(prefs.reducedEffects)f.k=1;
       if(f.fix)f.fix.k=f.k;
       f.tube.setColorAt(f.idx,new THREE.Color(0xf4f7ff).multiplyScalar(f.k));
       f.halo.setColorAt(f.idx,new THREE.Color(0xffffff).multiplyScalar(f.k));
@@ -1749,7 +1764,7 @@ function updateLightPool(dt,pos){
 }
 function updatePoolGlow(dt){
   for(const p of pool){
-    p.i=lerp(p.i,p.targetI*(p.flick===undefined?1:p.flick),Math.min(1,dt*8));
+    p.i=lerp(p.i,p.targetI*(prefs.reducedEffects||p.flick===undefined?1:p.flick),Math.min(1,dt*8));
     p.l.intensity=p.i;
   }
 }
@@ -3072,9 +3087,9 @@ function fire(){
 
   SFX.shot(d.sfx);
   w.flashTimer=0.045;
-  w.flashMat.opacity=1;
+  w.flashMat.opacity=prefs.reducedEffects?0.18:1;
   w.flash.forEach(f=>{f.rotation.z=rand(0,TAU);f.scale.setScalar(rand(0.75,1.5));});
-  muzzleLight.intensity=d.key==='shotgun'?60:34;
+  muzzleLight.intensity=(d.key==='shotgun'?60:34)*(prefs.reducedEffects?0.18:1);
   w.kickZ=(w.kickZ||0)+d.kick;
   w.kickR=(w.kickR||0)+d.kick*1.5;
   recoilVP+=d.pitch*0.9*rand(0.85,1.2);
@@ -3136,26 +3151,26 @@ function updateWeapon(dt){
     if(w.flashTimer>0){
       w.flashTimer-=dt;
       if(w.flashTimer<=0)w.flashMat.opacity=0;
-      else w.flashMat.opacity=clamp(w.flashTimer/0.045,0,1);
+      else w.flashMat.opacity=clamp(w.flashTimer/0.045,0,1)*(prefs.reducedEffects?0.18:1);
     }
     w.bloom*=Math.pow(0.05,dt);
     const base=aiming?d.ads:d.pos;
     w.kickZ=(w.kickZ||0)*Math.pow(0.0006,dt);
     w.kickR=(w.kickR||0)*Math.pow(0.0009,dt);
     w.raise=(w.raise||0)*Math.pow(0.004,dt);
-    const speed=Math.hypot(player.vel.x,player.vel.z);
-    const bobX=Math.sin(player.bob)*0.016*player.bobAmt*(aiming?0.25:1);
-    const bobY=Math.abs(Math.cos(player.bob))*0.013*player.bobAmt*(aiming?0.25:1);
-    const swayX=clamp(-lookDX*0.9,-0.05,0.05);
-    const swayY=clamp(lookDY*0.9,-0.05,0.05);
-    const rl=w.reloading>0?Math.sin((1-w.reloading/(w.reloadMax||d.reload))*Math.PI):0;
+    const motion=prefs.reducedEffects?0:1,raise=(w.raise||0)*motion;
+    const bobX=Math.sin(player.bob)*0.016*player.bobAmt*(aiming?0.25:1)*motion;
+    const bobY=Math.abs(Math.cos(player.bob))*0.013*player.bobAmt*(aiming?0.25:1)*motion;
+    const swayX=clamp(-lookDX*0.9,-0.05,0.05)*motion;
+    const swayY=clamp(lookDY*0.9,-0.05,0.05)*motion;
+    const rl=w.reloading>0?Math.sin((1-w.reloading/(w.reloadMax||d.reload))*Math.PI)*motion:0;
     w.holder.position.set(
       base.x+bobX+swayX,
-      base.y+bobY+swayY-rl*0.16-w.raise*0.25,
-      base.z+(w.kickZ||0)
+      base.y+bobY+swayY-rl*0.16-raise*0.25,
+      base.z+(w.kickZ||0)*motion
     );
     w.holder.rotation.set(
-      (w.kickR||0)*-1.2 - rl*0.6 - w.raise*0.5,
+      (w.kickR||0)*-1.2*motion - rl*0.6 - raise*0.5,
       swayX*2.2 + rl*0.35,
       swayY*1.4 + rl*0.25
     );
@@ -3279,19 +3294,20 @@ function updatePlayer(dt){
   recoilP*=Math.pow(0.02,dt);recoilY*=Math.pow(0.02,dt);
 
   player.shake=Math.max(0,player.shake-dt*1.6);
-  const sh=player.shake;
+  const motion=prefs.reducedEffects?0:1,sh=player.shake*motion;
 
   camera.position.set(
-    player.pos.x+Math.sin(player.bob)*0.028*player.bobAmt+rand(-sh,sh)*0.12,
-    EYE+player.y+Math.abs(Math.cos(player.bob))*0.035*player.bobAmt+rand(-sh,sh)*0.12,
+    player.pos.x+Math.sin(player.bob)*0.028*player.bobAmt*motion+rand(-sh,sh)*0.12,
+    EYE+player.y+Math.abs(Math.cos(player.bob))*0.035*player.bobAmt*motion+rand(-sh,sh)*0.12,
     player.pos.z
   );
+  /* Pitch/yaw recoil remains part of aiming; only cosmetic motion is reduced. */
   camera.rotation.set(player.pitch+recoilP*0.017,player.yaw+recoilY*0.017,
-    Math.sin(player.bob)*0.006*player.bobAmt+recoilY*0.004);
+    (Math.sin(player.bob)*0.006*player.bobAmt+recoilY*0.004)*motion);
 
   const wantFov=aiming?((WDEF[curWeapon].adsFov||57)):(sprinting&&sp>3?80:74);
   if(Math.abs(camera.fov-wantFov)>0.05){
-    camera.fov=lerp(camera.fov,wantFov,Math.min(1,dt*11));camera.updateProjectionMatrix();
+    camera.fov=prefs.reducedEffects?wantFov:lerp(camera.fov,wantFov,Math.min(1,dt*11));camera.updateProjectionMatrix();
   }
 
   player.lastHurt+=dt;
@@ -3670,6 +3686,7 @@ window.addEventListener('pointermove',e=>{
    predating navigator.audioSession; it plays once, from one reused element. */
 let sessActivated=false, silentEl=null, deployDone=false;
 function unlockAudio(){
+  if(prefs.muted)return;
   SFX.init();
   SFX.resume();
   if(!deployDone&&gameState==='playing'&&SFX.state()==='running'){SFX.deploy();deployDone=true;}
@@ -3753,8 +3770,21 @@ function syncDiff(){
 setDiff(casual);
 
 /* =============================================================== SCREENS */
+function comfortControls(){
+  return '<div class="comfort" role="group" aria-label="Comfort controls">'+
+    '<button type="button" class="chip" id="muteBtn">MUTE SOUND</button>'+
+    '<button type="button" class="chip" id="effectsBtn">REDUCED EFFECTS</button></div>';
+}
+function syncComfort(){
+  document.body.classList.toggle('reduced-effects',prefs.reducedEffects);
+  for(const [id,key] of [['muteBtn','muted'],['effectsBtn','reducedEffects']]){
+    const button=document.getElementById(id);
+    if(button){button.setAttribute('aria-pressed',String(prefs[key]));button.classList.toggle('on',prefs[key]);}
+  }
+  if(prefs.reducedEffects)updateFlicker(0);
+}
 function setPanel(html){
-  elPanel.innerHTML=html;elScreens.scrollTop=0;
+  elPanel.innerHTML=html;elScreens.scrollTop=0;syncComfort();
   queueMicrotask(()=>{
     if(!elScreens.classList.contains('hide')){
       const button=elPanel.querySelector('button');
@@ -3779,7 +3809,7 @@ function pause(){
     '<div class="note">'+(pausesLeft===0?'LAST PAUSE':'PAUSES LEFT '+pausesLeft)+' THIS WAVE</div>'+
     '<div class="note" id="pauseCta">AUTO-RESUME IN '+PAUSE_HOLD+'</div>'+
     '<button type="button" class="cta" id="cta">RESUME</button>'+
-    '<button type="button" class="quitline" id="quitBtn">QUIT TO TITLE</button>');
+    '<button type="button" class="quitline" id="quitBtn">QUIT TO TITLE</button>'+comfortControls());
   if(document.exitPointerLock)document.exitPointerLock();
   pauseT=PAUSE_HOLD;pauseShown=PAUSE_HOLD;
 }
@@ -3792,7 +3822,7 @@ function suspend(){
     '<p class="sub">Your controls were interrupted. The station is waiting.</p>'+
     '<div class="note">NO TACTICAL PAUSE SPENT</div>'+
     '<button type="button" class="cta" id="cta">RESUME</button>'+
-    '<button type="button" class="quitline" id="quitBtn">QUIT TO TITLE</button>');
+    '<button type="button" class="quitline" id="quitBtn">QUIT TO TITLE</button>'+comfortControls());
   if(document.exitPointerLock)document.exitPointerLock();
 }
 function resume(fromGesture=false){
@@ -3827,7 +3857,7 @@ function victory(){
   ngP++;
   saveSave();
   SFX.waveClear();SFX.victory();
-  elFlash.style.opacity=0.45;setTimeout(()=>elFlash.style.opacity=0,140);
+  elFlash.style.opacity=prefs.reducedEffects?0:0.45;setTimeout(()=>elFlash.style.opacity=0,140);
   setPanel('<div class="kicker">PLATFORM SECURED</div><h1>STATION HELD</h1>'+
     '<div class="rule"></div>'+
     '<p class="sub">The last train came, and you were still standing on the platform.</p>'+badgeTxt+
@@ -3848,7 +3878,7 @@ function victory(){
 function gameOver(){
   gameState='over';clearHeldInput();
   SFX.gameOver();
-  elFlash.style.opacity=0.55;setTimeout(()=>elFlash.style.opacity=0,120);
+  elFlash.style.opacity=prefs.reducedEffects?0:0.55;setTimeout(()=>elFlash.style.opacity=0,120);
   const acc=stats.shots?Math.round(stats.hits/stats.shots*100):0;
   recordRun();saveSave();
   setPanel('<div class="kicker">'+(ngP>0?'PLATFORM OVERRUN · NEW GAME+ '+ngP:'PLATFORM OVERRUN')+'</div><h1>STATION LOST</h1>'+
@@ -3914,6 +3944,11 @@ elScreens.addEventListener('click',e=>{
   if(webglFailed)return;
   const button=e.target.closest?.('button');
   if(!button||!elScreens.contains(button))return;
+  if(button.id==='muteBtn'||button.id==='effectsBtn'){
+    const key=button.id==='muteBtn'?'muted':'reducedEffects';prefs[key]=!prefs[key];
+    try{localStorage.setItem('ashworthPrefs',JSON.stringify(prefs));}catch(e){}
+    SFX.setMuted(prefs.muted);if(!prefs.muted)unlockAudio();syncComfort();return;
+  }
   if(button.id==='quitBtn'&&['paused','suspended','over','won'].includes(gameState)){quitToTitle();return;}
   if(gameState==='menu'&&button.id==='dCasual'){unlockAudio();setDiff(true);return;}
   if(gameState==='menu'&&button.id==='dSurv'){unlockAudio();setDiff(false);return;}
@@ -3997,7 +4032,7 @@ world.updateMatrixWorld(true);
 world.traverse(o=>{if(!o.userData.dyn)o.matrixAutoUpdate=false;});
 
 hudAmmo();hudHP();hudKills();
-loadSave();setPrestigeLine();
+loadSave();setPrestigeLine();syncComfort();
 requestAnimationFrame(frame);
 }
 boot();

@@ -42,7 +42,7 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | 13 | Transient-state resets | automated verified | Full restart clears input, velocity/jump, recoil, bob, weapon pump/bloom/kick/flash/raise, pooled effects and decals; explicit baseline camera/weapon pose; accumulated 42/42 checks pass |
 | 14 | Save normalization | automated verified | `7f4094f`; valid profiles preserved, five strict boolean badges, safe/finite fields, invalid best independent of valid progression; 20 malformed/boundary/reload cases plus storage-disabled play pass |
 | 15 | Reflective material tuning | pending | No new shader features |
-| 16 | Mute and reduced effects | pending | Local preferences |
+| 16 | Mute and reduced effects | automated verified | Local strict-boolean preferences; OS reduced-motion default with explicit override; native controls on title/pause/suspension; master gain mute and single-context unmute; cosmetic bob/shake/roll/sway/flash/flicker/grain reduced while pitch/yaw aiming recoil and damage cues remain. All preference/ballistic checks pass; real iOS/audio pending |
 | 17 | Procedural surface detail | pending | Same texture dimensions |
 | 18 | Contact/seam shading | pending | Existing resources only |
 | 19 | Documentation and proven dead code | in progress | `7559561` fixes regression-discovered finale roster budget while preserving bosses; exact recipes and EASY/HERO/NG+ scripted 15-wave runs pass; docs/vendor provenance still pending |
