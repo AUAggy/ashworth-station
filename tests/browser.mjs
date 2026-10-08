@@ -337,6 +337,17 @@ for(const type of enemyTypes)add(`broad-phase rays hit ${type} head/body centres
   for(const row of rows){assert.ok(row.hit,JSON.stringify(row));assert.equal(row.hit.type,type);assert.equal(row.hit.head,row.head,JSON.stringify(row));
     assert.ok(Math.abs(row.hit.t-row.expected)<1e-6,JSON.stringify(row));}
 });
+add('fallback announcements never intercept actual canvas fire or aim', {controlledLifecycle:true,pointerLockReject:true}, async page=>{
+  await page.getByRole('button',{name:/DEPLOY/}).click();await page.waitForFunction(()=>__test.state.fallbackLook);
+  const bounds=await page.locator('#bSub').boundingBox();assert.ok(bounds);
+  const point={x:bounds.x+bounds.width/2,y:bounds.y+bounds.height/2};
+  assert.equal(await evaluate(page,p=>document.elementFromPoint(p.x,p.y)?.id,point),'c','read-only banner blocked canvas');
+  await page.mouse.move(point.x,point.y);await page.mouse.down();
+  await evaluate(page,()=>__test.advance(.05));await page.mouse.up();
+  assert.equal(await evaluate(page,()=>__test.weapons.pistol.ammo),14,'actual fallback click did not fire');
+  await page.mouse.down({button:'right'});assert.equal(await evaluate(page,()=>__test.state.aiming),true);
+  await page.mouse.up({button:'right'});assert.equal(await evaluate(page,()=>__test.state.aiming),false);
+});
 add('refined weapons preserve attachment markers and keep pump ribs on the pump', {}, async page=>{
   const result=await evaluate(page,()=>{
     const attachments=Object.fromEntries(Object.entries(__test.weapons).map(([name,w])=>[name,

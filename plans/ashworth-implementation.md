@@ -27,7 +27,7 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 
 | ID | Task | Status | Evidence / commit |
 |---:|---|---|---|
-| 1 | Consume menu gestures | automated verified | Menu click semantics plus canvas-only mouse shooting; dual-button releases independent; deploy/redeploy/resume retain 15 rounds |
+| 1 | Consume menu gestures | automated verified | Menu click semantics plus canvas-only mouse shooting; dual-button releases independent; deploy/redeploy/resume retain 15 rounds. Live WebKit smoke exposed banner interception in fallback steering; read-only banner now ignores pointer events. Actual hit-testing/fire/aim regression fails before the fix and passes in both engines |
 | 2 | Scope service-worker cache ownership | automated verified | `d1fc1e9`; 7/7 syntax/import/cache checks and real primed-offline/unrelated-cache checks pass |
 | 3 | Enemy jaw resource ownership | automated verified | Shared jaw geometry; owned material disposed on both paths. Latest warmed fixture plateaus at 196 geometries, 34 textures, 19 programs in both engines; actual kill/expiry/redeploy additionally disposes all 90 owned materials once and never shared geometry |
 | 4 | Short-screen menu layout | automated verified | `06d0398`; scrollable safe-area overlay, compact landscape, 2x2 end stats; four regression viewports and worker swipe evidence |
@@ -60,7 +60,7 @@ Bounds: 12 hours from supervisor start, at most 24 continuation attempts, at lea
 - Accumulated acceptance: Chromium 133/133, desktop WebKit 133/133, static/cache 7/7, supervisor 8/8. Independent review found no blocking regression; its end-buffer collection finding is fixed and reproduced by a failing-before/passing-after test.
 - `/tmp/ashworth-render-release/` and `/tmp/ashworth-render-reference-repeat/`: final four-profile/24-scene comparisons preserve every measured resource/draw/quality budget. Raw timing varies substantially; native Mac diagnostics are not sustained phone/tablet certification.
 - Temporary provider limits were handled by bounded continuation without new credentials/subscriptions. Supervisor state/logs remain local in `.git/ashworth-run/`; STOP is `.git/ashworth-run/STOP`. Original remaining deadline/attempt bounds were preserved on restart.
-- Publication in progress: push the tested branch and fast-forward the existing `main` Pages source, verify the build/live artifact and primed offline behavior, then record completion. No source changes are planned; real-device and human checks remain pending.
+- `5269007` published successfully (Pages build 1270134223); live HTML/SW hashes match and Chromium runtime/offline checks passed. Live WebKit revealed an announcement layer intercepting actual fallback clicks, a gap in the earlier API-driven tests. One CSS pointer-events fix and a failing-before/passing-after regression are ready; rerun the now-134-case suites, republish with cache v17 and verify both live engines before completion. Real-device and human checks remain pending.
 
 ## Required final assessment
 

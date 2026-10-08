@@ -4,7 +4,7 @@ These checks do not change how Ashworth is hosted. There is no package manifest,
 
 ## Current suite
 
-The browser suite now has **133 cases** by default (134 with the optional `--capture` case); the historical 28- and 116-case runs below describe earlier checkpoints, not the current release status. `node tools/check.mjs` has seven standard-library checks. The supervisor has eight unit checks. Counts are not a claim that all checks have been run or passed against the current graphics changes.
+The browser suite now has **134 cases** by default (135 with the optional `--capture` case); the historical 28- and 116-case runs below describe earlier checkpoints, not the current release status. `node tools/check.mjs` has seven standard-library checks. The supervisor has eight unit checks. Counts are not a claim that all checks have been run or passed against the current graphics changes.
 
 ## Run
 
@@ -61,7 +61,7 @@ The real-service-worker cases use an unmodified page with service workers enable
 - Missing, malformed, old, valid, negative, incorrectly typed, and huge progress records, plus storage-disabled play. Invalid best records must not discard valid progression. Each save variant boots in a fresh context; disabled storage is installed before module boot. The WebGL probe drains the controlled RAF queue once to detect any mistakenly scheduled game loop.
 - Rendered spawn/clear and natural corpse-removal loops for all five enemy types. Seven cycles check geometry/texture/program counts against the third cycle, allowing at most one additional resource after warm-up. The plateau corpse case marks enemies dead directly. A separate three-cycle case calls actual `killEnemy()`, renders killed actors, expires them and redeploys: all 90 owned material instances must dispose exactly once, shared geometry must never dispose, and post-redeploy resources must remain bounded. Neither proves combat balance.
 - Recipe length/queue/type agreement across EASY/HERO, NG+ 0/1/5/100, and early/late/final waves. The actual director/train/spawn code is advanced through all 15 waves, with scripted clears checking the live cap and victory transition. This does **not** prove human survivability or balance.
-- Deliberate firing, keyboard weapon selection, timed reload, and ammo conservation; death/redeploy/title transitions. Weapon muzzle/ejection vectors remain exact; all five shotgun ribs fit the pump's local height/depth bounds.
+- Deliberate firing, keyboard weapon selection, timed reload, and ammo conservation; death/redeploy/title transitions. A real hit-tested mouse click during a read-only announcement must reach the canvas in fallback steering, fire one round and permit right-button aiming. Weapon muzzle/ejection vectors remain exact; all five shotgun ribs fit the pump's local height/depth bounds.
 - Primed offline **query-navigation** reload with the real worker; old Ashworth cache deletion and unrelated cache preservation. Standard-library worker checks additionally cover poisoned unrelated cache entries, exact asset allowlisting, cross-origin requests, and non-GET requests.
 
 ### Safety and comfort regressions
