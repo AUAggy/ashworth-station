@@ -308,6 +308,7 @@ if('serviceWorker' in navigator){addEventListener('load',function(){
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
+function boot(){
 /* ================================================================ helpers */
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -738,13 +739,13 @@ try{
   renderer=new THREE.WebGLRenderer({canvas:canvasEl,antialias:!COARSE,powerPreference:'high-performance'});
 }catch(err){
   webglFailed=true;
-  renderer={capabilities:{getMaxAnisotropy:()=>1},setPixelRatio(){},setSize(){},render(){}};
   document.getElementById('panel').innerHTML=
     '<div class="kicker">ASHWORTH ST</div><h1>NO WEBGL</h1><div class="rule"></div>'+
     '<p class="sub">This browser can\'t open a WebGL context, so the station can\'t be drawn. '+
     'Try a different browser, or enable hardware acceleration and reload. '+
     'Still failing? Report it: '+
     '<a href="https://github.com/AUAggy/ashworth-station/issues" style="color:#d9a441">github.com/AUAggy/ashworth-station/issues</a>.</p>';
+  return;
 }
 /* 1.75 on a DPR-2 tablet is ~3M fragments before MSAA; 1.25 halves that and is
    indistinguishable at arm's length. The adaptive loop still tunes from here. */
@@ -4059,6 +4060,8 @@ world.traverse(o=>{if(!o.userData.dyn)o.matrixAutoUpdate=false;});
 hudAmmo();hudHP();hudKills();
 loadSave();setPrestigeLine();
 requestAnimationFrame(frame);
+}
+boot();
 </script>
 </body>
 </html>

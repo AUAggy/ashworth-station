@@ -28,11 +28,11 @@ Statuses: pending, in progress, automated verified, blocked. Graphics can be imp
 | ID | Task | Status | Evidence / commit |
 |---:|---|---|---|
 | 1 | Consume menu gestures | automated verified | Menu click semantics plus canvas-only mouse shooting; dual-button releases independent; deploy/redeploy/resume retain 15 rounds |
-| 2 | Scope service-worker cache ownership | pending | Worker QA |
+| 2 | Scope service-worker cache ownership | automated verified | `d1fc1e9`; 7/7 syntax/import/cache checks and real primed-offline/unrelated-cache checks pass |
 | 3 | Enemy jaw resource ownership | automated verified | Shared jaw geometry; owned material disposed by both cleanup paths; 8 rendered cycles/path plateau at 190 geometries, 34 textures, 20 programs |
 | 4 | Short-screen menu layout | automated verified | `06d0398`; scrollable safe-area overlay, compact landscape, 2x2 end stats; four regression viewports and worker swipe evidence |
 | 5 | Spawn safety | pending | Close stair route; verify remaining entrances |
-| 6 | Clean WebGL failure | pending | |
+| 6 | Clean WebGL failure | automated verified | Boot returns immediately after fallback panel; renderer failure has no uncaught exception, input setup, or RAF |
 | 7 | Frame-independent movement | pending | |
 | 8 | Safe interruption suspension | pending | Preserve tactical ration |
 | 9 | Regression/release checks | in progress | `9167862`: syntax/import map, cache isolation, deterministic browser/simulation/resource checks; baseline 14/28 browser checks passed, 14 confirmed failures; 4/7 static/SW passed |
