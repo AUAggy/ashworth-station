@@ -8,7 +8,7 @@
 
 ---
 
-> **My contribution was judgement, architecture, constraints and verification. The agents did the transcription.**
+> **AI agents wrote the code. I set the direction, held the constraints and decided what was ready to ship.**
 
 ---
 
@@ -16,19 +16,24 @@
 
 What began as an AI experiment became an evenings-and-weekends project with my son, who is seven. We'd play, talk about what felt wrong, and decide what to change. The crawlers, the wave count, the graffiti, the pause limit and the TURN button were his ideas.
 
-I am not a trained software developer. My background is in systems architecture and security. AI agents wrote the code. I supplied the constraints, the architecture those constraints forced, the judgement about what to keep, and the verification that decided whether any of it was finished.
+I am not a trained software developer. My background is in systems architecture and security. I used that experience to direct the agents' work and judge whether the result fit the game we wanted to make.
 
 My son and his friends tested it by playing. They reported bugs and asked for changes. I took their feedback to the agents, then tested the changes with the children. I decided what to ship.
 
 **Scope.** This is a personal project, built on my own time and my own equipment. It is unrelated to my employer's business and uses no employer resources, data or IP.
 
-## What this repository is, and what it demonstrates
+## What I contributed
 
-This repository shows how I work when generation is cheap. I take a vague requirement from a non-technical stakeholder, impose constraints that force design decisions, and direct agents to build against them. Then I verify the result, break it, trace failures to their causes and fix them.
+I decided what the game needed, how its parts should work together and which changes to keep. The agents proposed solutions and wrote the code.
 
-A game is a demanding test case for that. It has to hold 60 frames per second on a phone, it has to be correct with no server to correct it, and its audience has no patience and no interest in excuses.
+- I turned feedback into requirements. My son and his friends described what they wanted or what felt wrong. I translated that into changes the agents could build and we could test, while keeping the game usable with thumbs on glass as well as a mouse.
+- I set the system boundaries. One HTML document for the game, no accounts, no telemetry and no runtime network dependency kept the project small. Progress stayed in the browser. Development tools stayed outside the shipped game.
+- I judged changes across systems. A climbable stairwell affected movement, shooting, enemy spawns and pickups. Those systems disagreed about elevation. I chose to close the playable route and keep the stairs as scenery rather than expand the game into a more complex terrain system.
+- I set limits on proposed improvements. Graphics work had to stay within existing limits on lights and rendering work. A better-looking surface had to justify its cost. Reviews could identify problems; they did not give the agents permission to add unrequested features or rewrite the game.
+- I directed the work through review and testing. Changes followed a written plan, with focused fixes and tests to catch old bugs returning. A fix also had to make sense in play: making enemy attacks land reliably changed the difficulty, so damage needed retuning too.
+- I decided what the evidence supported. Automated checks could verify specific behaviour, such as movement staying consistent at different screen refresh rates. They could not show how a phone performed during sustained play or whether audio worked on a real iPhone. Those checks had to stay pending until tested on a device.
 
-The constraints below reflect my security background.
+The target was smooth play on a phone, with controls a child could use and no server to repair local state. Playing with my son and his friends was how we checked whether the changes actually made a better game.
 
 ## Repository contents
 
